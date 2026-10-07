@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="dark">
 <meta name="theme-color" content="#0e0e0e">
-<title>Speed Display</title>
+<title>Head-Up Display</title>
 <style>
 :root {
   /* Greyscale dark theme. Colour is reserved for status (ok / warn / error). */
@@ -160,7 +160,7 @@ code { font-family: var(--mono); font-size: 12.5px; background: var(--panel-2); 
 <body>
 <header>
   <div class="bar">
-    <div class="brand">Speed Display<small id="hdr-sub">connecting…</small></div>
+    <div class="brand">Head-Up Display<small id="hdr-sub">connecting…</small></div>
     <div class="pill" aria-live="polite"><span class="dot" id="hdr-dot"></span><b id="hdr-speed">--.-</b><span id="hdr-unit">KN</span></div>
   </div>
   <nav role="tablist" aria-label="Sections">
@@ -253,7 +253,7 @@ code { font-family: var(--mono); font-size: 12.5px; background: var(--panel-2); 
 
     <form class="card" id="form-portal">
       <h2>Setup access point</h2>
-      <p class="sub">The display's own Wi-Fi network for this page, at <code>http://192.168.71.1</code>. On the boat network the page is also at <code id="portal-url">http://speed.local</code>.</p>
+      <p class="sub">The display's own Wi-Fi network for this page, at <code>http://192.168.71.1</code>. On the boat network the page is also at <code id="portal-url">http://headup.local</code>.</p>
       <div class="grid">
         <label class="field"><span>When to broadcast it</span>
           <select id="portal-apMode">

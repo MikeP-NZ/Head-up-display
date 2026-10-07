@@ -33,7 +33,7 @@ UNITS = {"kn": ("KN", 1.943844), "kmh": ("KM/H", 3.6), "mph": ("MPH", 2.236936),
 
 DEFAULTS = {
     "wifi": {"ssid": "", "open": True},
-    "portal": {"apMode": "always", "ssid": "", "defaultSsid": "Speed-1A2B", "open": False, "hostname": "speed"},
+    "portal": {"apMode": "always", "ssid": "", "defaultSsid": "HeadUp-1A2B", "open": False, "hostname": "headup"},
     "data": {"transport": "tcp", "protocol": "auto", "host": "", "port": 1456},
     "speed": {"source": "prefer_stw", "unit": "kn", "decimals": -1, "smoothing": 1.0, "staleSec": 5, "stwFilter": 0, "sogFilter": 0, "depthUnit": "m"},
     "display": {
@@ -153,7 +153,7 @@ class Device:
                 "connected": conn, "hostname": self.cfg["portal"]["hostname"],
                 **({"ip": "192.168.4.2", "gateway": "192.168.4.1", "rssi": -58, "channel": 6} if conn else {}),
             },
-            "ap": {"active": True, "ssid": self.cfg["portal"]["ssid"] or "Speed-1A2B", "ip": "192.168.71.1", "clients": 1},
+            "ap": {"active": True, "ssid": self.cfg["portal"]["ssid"] or "HeadUp-1A2B", "ip": "192.168.71.1", "clients": 1},
             "data": {
                 "transport": self.cfg["data"]["transport"], "host": self.cfg["data"]["host"], "port": self.cfg["data"]["port"],
                 "remote": "192.168.4.1" if conn else "", "state": "connected" if conn else "no_network", "lastError": "",
@@ -200,7 +200,7 @@ class Device:
             cmd = ["test", "t=%d" % int((now - self.test_start) * 1000)]
         elif not c["wifi"]["ssid"] or now < self.info_until:
             cmd = ["info", "setup=%d" % (not c["wifi"]["ssid"]), "page=%d" % int(now / 4), "ssid=" + c["wifi"]["ssid"],
-                   "apssid=" + (c["portal"]["ssid"] or "Speed-1A2B"), "hostname=" + c["portal"]["hostname"]]
+                   "apssid=" + (c["portal"]["ssid"] or "HeadUp-1A2B"), "hostname=" + c["portal"]["hostname"]]
         else:
             ok, kind, cur, _, _ = self.speed_state()
             _, factor = UNITS[c["speed"]["unit"]]
@@ -212,7 +212,7 @@ class Device:
                    "valid=" + ",".join("1" if ok else "0" for _ in items), "kind=" + kind.lower(),
                    "wifi=%d" % self.connected(), "link=%d" % self.connected()]
             if not self.connected():
-                cmd += ["err=1", "msg=NO WIFI " + c["wifi"]["ssid"] + "  SETUP: Speed-1A2B 192.168.71.1"]
+                cmd += ["err=1", "msg=NO WIFI " + c["wifi"]["ssid"] + "  SETUP: HeadUp-1A2B 192.168.71.1"]
         return subprocess.run([PREVIEW] + cmd + args, check=True, capture_output=True).stdout
 
     def merge(self, body):
@@ -272,7 +272,7 @@ def make_handler(dev):
                 if u.path == "/api/config":
                     return self.send(200, {**dev.cfg, "rebootRequired": dev.reboot_required, "board": dev.board})
                 if u.path == "/api/export":
-                    return self.send(200, {**dev.cfg, "board": dev.board["id"]}, headers={"Content-Disposition": 'attachment; filename="speed-display-config.json"'})
+                    return self.send(200, {**dev.cfg, "board": dev.board["id"]}, headers={"Content-Disposition": 'attachment; filename="head-up-display-config.json"'})
                 if u.path == "/api/status":
                     return self.send(200, dev.status())
                 if u.path == "/api/frame":

@@ -5,7 +5,7 @@
 //   preview speed value=6.4 kind=stw unit=kn
 //   preview dash width=64 height=32 sections=4 items=stw,awa,aws,dpt values=6.4,-42,14.2,8.3
 //       (values in display units; wind angles negative = port; valid=1,1,0,1)
-//   preview info setup=1 apssid=Speed-1A2B appass=boatspeed
+//   preview info setup=1 apssid=HeadUp-1A2B appass=headupdisplay
 //   preview test t=7000
 //   preview message title=UPDATE progress=40
 
@@ -93,12 +93,12 @@ int main(int argc, char** argv) {
     InfoView v;
     v.setupMode = num("setup", 0) != 0;
     v.apActive = num("ap", 1) != 0;
-    v.apSsid = str("apssid", "Speed-1A2B").c_str();
-    v.apPass = str("appass", "boatspeed").c_str();
+    v.apSsid = str("apssid", "HeadUp-1A2B").c_str();
+    v.apPass = str("appass", "headupdisplay").c_str();
     v.apIp = "192.168.71.1";
     v.staSsid = str("ssid", "YDWG").c_str();
     v.staIp = str("ip", "192.168.4.2").c_str();
-    v.hostname = str("hostname", "speed").c_str();
+    v.hostname = str("hostname", "headup").c_str();
     r.drawInfo(v, static_cast<uint32_t>(num("page", 0)));
   } else if (screen == "test") {
     r.drawTestPattern(static_cast<uint32_t>(num("t", 0)));

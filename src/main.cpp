@@ -1,5 +1,6 @@
-// Boat instrument display (speed, wind, heading, depth, waypoint) for a HUB75
-// LED panel on an ESP32-S3 board, fed by a Yacht Devices Wi-Fi gateway.
+// Head-Up Display: boat instrument display (speed, wind, heading, depth,
+// waypoint) for a HUB75 LED panel on an ESP32-S3 board, fed by a Yacht Devices
+// Wi-Fi gateway.
 
 #include <Arduino.h>
 #include <WiFi.h>
@@ -221,7 +222,7 @@ void setup() {
   app.wifi.begin(app.settings);
   app.link.begin(app.settings);
   portal::begin();
-  log_i("speed display %s ready, portal AP '%s' on %s", FW_VERSION, app.settings.effectiveApSsid().c_str(),
+  log_i("head-up display %s ready, portal AP '%s' on %s", FW_VERSION, app.settings.effectiveApSsid().c_str(),
         BoatWifi::kApIp.toString().c_str());
   delay(1200);
 }

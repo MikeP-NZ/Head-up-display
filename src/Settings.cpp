@@ -5,7 +5,7 @@
 
 namespace {
 
-constexpr const char* kNamespace = "speedcfg";
+constexpr const char* kNamespace = "headupcfg";
 constexpr const char* kKey = "json";
 
 template <typename E>
@@ -170,7 +170,7 @@ String deviceId() {
 }
 
 String Settings::effectiveApSsid() const {
-  return apSsid.length() ? apSsid : String("Speed-") + deviceId();
+  return apSsid.length() ? apSsid : String("HeadUp-") + deviceId();
   //return apSsid.length() ? apSsid : String("Speed");
 }
 
@@ -183,7 +183,7 @@ void settingsToJson(const Settings& s, JsonObject root, bool includeSecrets) {
   JsonObject portal = root["portal"].to<JsonObject>();
   portal["apMode"] = nameOf(kApModes, s.apMode);
   portal["ssid"] = s.apSsid;
-  portal["defaultSsid"] = String("Speed-") + deviceId();
+  portal["defaultSsid"] = String("HeadUp-") + deviceId();
   portal["open"] = s.apPass.length() == 0;
   if (includeSecrets) portal["password"] = s.apPass;
   portal["hostname"] = s.hostname;
@@ -256,7 +256,7 @@ bool settingsMergeJson(Settings& s, JsonObjectConst root, SettingsChanges& chang
     if (o["open"] == true) n.apPass = "";
     if (n.apPass.length() > 0 && n.apPass.length() < 8) m.fail("portal password", "must be 8-63 characters");
     m.str(o, "hostname", n.hostname, 32);
-    if (n.hostname.length() == 0) n.hostname = "speed";
+    if (n.hostname.length() == 0) n.hostname = "headup";
     for (char c : n.hostname) {
       if (!isalnum(static_cast<unsigned char>(c)) && c != '-') {
         m.fail("hostname", "may only contain letters, digits and '-'");

@@ -62,7 +62,7 @@ constexpr BoardInfo kBoard = {
 
 // The OTA check's own search string also appears in every image, followed by
 // a NUL, so the scanner ignores matches with an empty id.
-#define TAG_PREFIX "SPDISP-BOARD:"
+#define TAG_PREFIX "HEADUP-BOARD:"
 __attribute__((used)) const char kFirmwareTag[] =
 #if defined(BOARD_HUIDU_HD_WF4)
     TAG_PREFIX "huidu-hd-wf4";

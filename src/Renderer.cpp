@@ -160,7 +160,9 @@ void Renderer::drawSplash(const char* version) {
   canvas_->setTextSize(2);
   int cw = canvas_->width();
   canvas_->setTextColor(accentColor());
-  const char* title = "SPEED";
+  const char* title = "HEAD-UP";
+  // Too wide for a single 64px panel at double size.
+  if (textWidth(title) > cw) canvas_->setTextSize(1);
   canvas_->setCursor((cw - textWidth(title)) / 2, canvas_->height() / 2 - 12);
   canvas_->print(title);
   canvas_->setTextSize(1);

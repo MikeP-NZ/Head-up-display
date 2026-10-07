@@ -27,9 +27,9 @@ struct Settings {
 
   // Configuration portal
   ApMode apMode = ApMode::Always;
-  String apSsid;  // empty = "Speed-XXXX"
-  String apPass = "boatspeed";
-  String hostname = "speed";
+  String apSsid;  // empty = "HeadUp-XXXX"
+  String apPass = "headupdisplay";
+  String hostname = "headup";
 
   // Yacht Devices server port
   Transport transport = Transport::Tcp;

@@ -1,11 +1,10 @@
-# Boat Instrument Display
+# Head-UP Marine Instrument Display
 
-Shows boat speed, wind, heading, depth and waypoint data on a HUB75 LED panel
-(64×64, 64×32 or chained), one value full-screen or 2 or 4 at a time, read
-over Wi-Fi from a
-Yacht Devices NMEA 2000 gateway (YDWG-02, YDNR-02, or anything else that serves
-NMEA 0183 or YD RAW on a TCP/UDP port). Everything is set up from a web portal
-on your phone. No app or cloud is involved.
+Displays a wide variety of boat speed, wind, heading, depth or navigation data
+on a HUB75 LED matrix panel (64×64, 64×32 or chained), one value full-screen
+or 2 or 4 at a time, read over Wi-Fi from an NMEA 2000 gateway (e.g. Yacht Devices YDWG-02,
+YDNR-02, or anything else that serves NMEA 0183 or YD RAW on a TCP/UDP port).
+Everything is set up from a web portal on your phone. No app or cloud is involved.
 
 ![Panel screens](docs/panel/contact_sheet.png)
 
@@ -18,7 +17,7 @@ on your phone. No app or cloud is involved.
 
 Plus:
 
-- A HUB75 RGB LED panel: 64×64, 64×32, or chained panels (set in the portal)
+- A HUB75 RGB LED panel: 64×64, 64×32, or chained panels (setup in the portal)
 - A 5 V supply sized for the panel. A 64×64 panel at full white draws several amps, so USB power alone is only good for a dim bench test.
 
 Each board has its own firmware image, because their flash layouts differ.
@@ -27,7 +26,7 @@ Over-the-air updates refuse an image built for the other board.
 ## How it works
 
 ```
-NMEA 2000 bus ─▶ Yacht Devices gateway ──Wi-Fi──▶ ESP32-S3 ──HUB75──▶ LED panel
+NMEA 2000 bus ─▶ NMEA 2000 gateway ──Wi-Fi──▶ ESP32-S3 ──HUB75──▶ LED panel
  (instruments)   192.168.4.1:1456                 joins the gateway's
                  NMEA 0183 or RAW                 network as a client
 ```
@@ -61,7 +60,7 @@ device to trust, either by NMEA 2000 source address (RAW) or by talker ID (0183)
 The display also runs its own Wi-Fi network for the setup portal at
 `http://192.168.71.1`. That network deliberately avoids 192.168.4.x, which the
 gateway uses. Once the display is on the boat network, the portal is also
-reachable at `http://speed.local` or the display's IP address.
+reachable at `http://headup.local` or the display's IP address.
 
 ## Flashing
 
@@ -93,7 +92,7 @@ Later updates can be uploaded from the portal's **System** tab: pick
 ## First-time setup
 
 1. Power up. The panel shows **SETUP** with the display's network name
-   (`Speed-XXXX`), its password (`boatspeed` by default) and `192.168.71.1`.
+   (`HeadUp-XXXX`), its password (`headupdisplay` by default) and `192.168.71.1`.
 2. Join that network from your phone. The portal usually opens by itself; if
    not, browse to `http://192.168.71.1`.
 3. **Wi-Fi** tab: tap **Scan for networks** and pick the gateway. Yacht Devices

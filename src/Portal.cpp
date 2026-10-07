@@ -142,7 +142,7 @@ void handleExport() {
   doc["portal"].remove("defaultSsid");
   doc["wifi"].remove("open");
   doc["portal"].remove("open");
-  server.sendHeader("Content-Disposition", "attachment; filename=\"speed-display-config.json\"");
+  server.sendHeader("Content-Disposition", "attachment; filename=\"head-up-display-config.json\"");
   String body;
   serializeJsonPretty(doc, body);
   server.send(200, "application/json", body);
@@ -337,7 +337,7 @@ void handleUpdateDone() {
   if (ok) app.scheduleReboot(800);
 }
 
-// Watches the uploaded image for the "SPDISP-BOARD:<id>" tag (see Board.cpp),
+// Watches the uploaded image for the "HEADUP-BOARD:<id>" tag (see Board.cpp),
 // across chunk boundaries. Matches with an empty id are the search string
 // itself and are ignored.
 class TagScanner {
@@ -349,7 +349,7 @@ class TagScanner {
   }
 
   void feed(const uint8_t* data, size_t len) {
-    static constexpr char kPrefix[] = "SPDISP-BOARD:";
+    static constexpr char kPrefix[] = "HEADUP-BOARD:";
     constexpr size_t kPrefixLen = sizeof(kPrefix) - 1;
     memcpy(buf_ + tailLen_, data, len);
     size_t n = tailLen_ + len;
@@ -415,7 +415,7 @@ void handleUpdateUpload() {
     if (!tagScanner.matched()) {
       failUpdate(tagScanner.other().length()
                      ? "this firmware is for " + tagScanner.other() + ", but this display is a " + board().name
-                     : String("not a Speed Display firmware image"));
+                     : String("not a Head-Up Display firmware image"));
     } else if (!Update.end(true)) {
       failUpdate(Update.errorString());
     } else {

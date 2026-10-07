@@ -80,7 +80,7 @@ flash the Waveshare image (`waveshare_s3_matrix`) to this board**: it expects
 1. Switch the power off and on again. If you bridged P2/S4, make sure the bridge is removed.
 2. Connect the panel to **X1 (75EX1)**, the default output.
 3. The panel shows **SETUP**. From here the steps are the same as in the main
-   [README](../README.md#first-time-setup): join `Speed-XXXX`, open
+   [README](../README.md#first-time-setup): join `HeadUp-XXXX`, open
    `http://192.168.71.1`, and pick the Yacht Devices network.
 4. On the **Panel** tab, choose the connector you're using. For a two-sided
    display, pick **X1 + X3** (or **X2 + X4**) to show the same image on two

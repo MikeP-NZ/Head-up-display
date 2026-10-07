@@ -46,6 +46,6 @@ const HubPort* findPort(const char* id);
 
 bool isUsableOutputPin(int gpio);
 
-// "SPDISP-BOARD:<id>" lives in the firmware image so the OTA handler can
+// "HEADUP-BOARD:<id>" lives in the firmware image so the OTA handler can
 // refuse an image built for a different board.
 const char* firmwareTag();
