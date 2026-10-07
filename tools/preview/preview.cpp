@@ -45,6 +45,7 @@ int main(int argc, char** argv) {
   std::string unit = str("unit", "kn"), dist = str("distunit", "nm"), shortDist = str("shortdistunit", "off");
   DisplayUnits units;
   units.depth = str("depthunit", "m") == "ft" ? DepthUnit::Feet : DepthUnit::Meters;
+  units.temperature = str("tempunit", "c") == "f" ? TempUnit::Fahrenheit : TempUnit::Celsius;
   units.speed = unit == "kmh" ? SpeedUnit::Kmh : unit == "mph" ? SpeedUnit::Mph : unit == "mps" ? SpeedUnit::Mps : SpeedUnit::Knots;
   units.distance = dist == "km" ? DistanceUnit::Kilometers : dist == "mi" ? DistanceUnit::Miles : DistanceUnit::NauticalMiles;
   units.shortDistance = shortDist == "m"    ? ShortDistanceUnit::Meters

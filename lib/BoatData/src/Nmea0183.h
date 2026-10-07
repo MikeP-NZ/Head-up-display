@@ -22,6 +22,7 @@
 //   RMB  distance/bearing to waypoint, VMC   (PGN 129284)
 //   BWC  distance/bearing to waypoint        (PGN 129284)
 //   VPW  speed parallel to wind (VMG)
+//   MTW  water temperature                   (PGN 130310, 130311, 130312, 130316)
 namespace nmea0183 {
 
 struct Sentence {

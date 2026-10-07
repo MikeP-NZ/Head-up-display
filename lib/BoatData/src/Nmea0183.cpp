@@ -66,6 +66,7 @@ bool plausible(Quantity q, float v) {
     case Quantity::Dpt: return v >= 0 && v <= 12000;
     case Quantity::Dtw: return v >= 0 && v <= 4.0e7f;
     case Quantity::Variation: return v >= -180 && v <= 180;
+    case Quantity::Mtw: return v >= -10 && v <= 60;
     default: return v >= -360 && v <= 360;
   }
 }
@@ -258,6 +259,9 @@ ParseResult parse(const char* line, Sentence& out) {
     // $--VPW,kn,N,m/s,M   speed parallel to the true wind
     if (num(1, v)) d.add(Quantity::Vmg, v * kKnot);
     else if (num(3, v)) d.add(Quantity::Vmg, v);
+  } else if (is("MTW")) {
+    // $--MTW,temp,C
+    if (num(1, v) && (field(2)[0] == 'C' || field(2)[0] == 0)) d.add(Quantity::Mtw, v);
   }
 
   // Drop values outside plausible ranges (also NaN).

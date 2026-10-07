@@ -178,6 +178,14 @@ static void test_vpw_vmg() {
   TEST_ASSERT_FLOAT_WITHIN(0.001f, -4.5f, valKn(s.data, Quantity::Vmg));
 }
 
+static void test_mtw_water_temperature() {
+  nmea0183::Sentence s;
+  TEST_ASSERT_EQUAL(ParseResult::Ok, nmea0183::parse("$YDMTW,18.4,C", s));
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, 18.4f, val(s.data, Quantity::Mtw));
+  TEST_ASSERT_EQUAL(ParseResult::Ok, nmea0183::parse("$YDMTW,65.0,F", s));
+  TEST_ASSERT_FALSE(s.data.has(Quantity::Mtw));
+}
+
 static void test_raw_line_is_not_nmea() {
   nmea0183::Sentence s;
   TEST_ASSERT_EQUAL(ParseResult::NotNmea, nmea0183::parse("17:33:21.107 R 19F51323 01 2F 30 70", s));
@@ -479,6 +487,27 @@ static void test_bearing_reference_conversion() {
   TEST_ASSERT_FLOAT_WITHIN(0.01f, 205.0f, r.value);
 }
 
+static void test_decode_water_temperature_pgns() {
+  Decoded d;
+  // 291.55 K = 18.4 C
+  ydraw::Frame f = frame(130312, 0x23, {0x00, 0x00, 0x00, 0xE3, 0x71, 0xFF, 0xFF, 0xFF});
+  TEST_ASSERT_TRUE(ydraw::decodePgn(f.pgn, f.data, f.len, d));
+  TEST_ASSERT_FLOAT_WITHIN(0.01f, 18.4f, val(d, Quantity::Mtw));
+  f = frame(130312, 0x23, {0x00, 0x00, 0x01, 0xE3, 0x71, 0xFF, 0xFF, 0xFF});  // outside air
+  TEST_ASSERT_TRUE(ydraw::decodePgn(f.pgn, f.data, f.len, d));
+  TEST_ASSERT_FALSE(d.has(Quantity::Mtw));
+  f = frame(130310, 0x23, {0x00, 0xE3, 0x71, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF});
+  TEST_ASSERT_TRUE(ydraw::decodePgn(f.pgn, f.data, f.len, d));
+  TEST_ASSERT_FLOAT_WITHIN(0.01f, 18.4f, val(d, Quantity::Mtw));
+  f = frame(130311, 0x23, {0x00, 0xC0, 0xE3, 0x71, 0xFF, 0xFF, 0xFF, 0xFF});  // sea, humidity source 3
+  TEST_ASSERT_TRUE(ydraw::decodePgn(f.pgn, f.data, f.len, d));
+  TEST_ASSERT_FLOAT_WITHIN(0.01f, 18.4f, val(d, Quantity::Mtw));
+  // 291550 mK, 24 bit
+  f = frame(130316, 0x23, {0x00, 0x00, 0x00, 0xDE, 0x72, 0x04, 0xFF, 0xFF});
+  TEST_ASSERT_TRUE(ydraw::decodePgn(f.pgn, f.data, f.len, d));
+  TEST_ASSERT_FLOAT_WITHIN(0.01f, 18.4f, val(d, Quantity::Mtw));
+}
+
 static void test_decode_128267_depth_with_offset() {
   Decoded d;
   ydraw::Frame f = frame(128267, 0x20, {0x00, 0xD2, 0x04, 0x00, 0x00, 0x0C, 0xFE, 0xFF});
@@ -620,6 +649,10 @@ static void test_item_formatting() {
   TEST_ASSERT_EQUAL_STRING("456", b);
   formatItem(Item::Cog, true, 7.0f, -1, b, sizeof(b));
   TEST_ASSERT_EQUAL_STRING("007", b);
+  formatItem(Item::Mtw, true, 8.44f, -1, b, sizeof(b));
+  TEST_ASSERT_EQUAL_STRING(" 8.4", b);
+  formatItem(Item::Mtw, false, 0, -1, b, sizeof(b));
+  TEST_ASSERT_EQUAL_STRING("--.-", b);
 
   DisplayUnits u;
   u.depth = DepthUnit::Feet;
@@ -628,6 +661,11 @@ static void test_item_formatting() {
   TEST_ASSERT_EQUAL_STRING("MAG", itemUnit(Item::Btw, u));
   u.bearing = BearingRef::True;
   TEST_ASSERT_EQUAL_STRING("TRUE", itemUnit(Item::Hdg, u));
+  TEST_ASSERT_EQUAL_STRING("C", itemUnit(Item::Mtw, u));
+  TEST_ASSERT_FLOAT_WITHIN(0.01f, 18.4f, itemDisplay(Item::Mtw, 18.4f, u).value);
+  u.temperature = TempUnit::Fahrenheit;
+  TEST_ASSERT_EQUAL_STRING("F", itemUnit(Item::Mtw, u));
+  TEST_ASSERT_FLOAT_WITHIN(0.01f, 65.12f, itemDisplay(Item::Mtw, 18.4f, u).value);
 }
 
 static void test_distance_units() {
@@ -684,6 +722,7 @@ int main(int, char**) {
   RUN_TEST(test_depth_sentences);
   RUN_TEST(test_waypoint_sentences);
   RUN_TEST(test_vpw_vmg);
+  RUN_TEST(test_mtw_water_temperature);
   RUN_TEST(test_raw_line_is_not_nmea);
   RUN_TEST(test_pgn_from_can_id_matches_manual_examples);
   RUN_TEST(test_raw_line_parse);
@@ -707,6 +746,7 @@ int main(int, char**) {
   RUN_TEST(test_decode_130306_wind);
   RUN_TEST(test_decode_127250_heading_and_true_to_magnetic);
   RUN_TEST(test_bearing_reference_conversion);
+  RUN_TEST(test_decode_water_temperature_pgns);
   RUN_TEST(test_decode_128267_depth_with_offset);
   RUN_TEST(test_fast_packet_129284_navigation);
   RUN_TEST(test_model_angles_average_across_zero);

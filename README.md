@@ -49,6 +49,7 @@ It understands both data protocols Yacht Devices gateways offer:
 | VMG to wind | `VPW` | — (no standard PGN) |
 | VMC to waypoint | `RMB` (closing velocity) | PGN 129284 |
 | DPT depth | `DPT` (with offset), else `DBT` | PGN 128267 (with offset) |
+| MTW water temperature | `MTW` | PGN 130310, 130311, 130312, 130316 (sea temperature) |
 | Clock (night schedule) | `RMC`, `ZDA` | PGN 126992 |
 
 Bearings (HDG, COG, BTW, TWD) are shown **magnetic** or **true**, as chosen on
@@ -147,7 +148,7 @@ sends.
 | Live | Current speed, every instrument value, live LED preview, setup checklist, every data source seen on the bus |
 | Wi-Fi | Boat network (with scan); setup network name, password, always-on vs fallback, hostname |
 | Data | TCP/UDP, gateway address and port, NMEA 0183 / RAW / Auto, gateway discovery, connection stats, live data view |
-| Units | STW vs SOG for *Boat speed* (with fallback), speed units (kn, km/h, mph, m/s), depth units (m, ft), distance units (NM, km, mi) with optional m/yd/ft for distances under 1000 of those, magnetic or true bearings, decimals, smoothing, stale timeout, per-device source selection |
+| Units | STW vs SOG for *Boat speed* (with fallback), speed units (kn, km/h, mph, m/s), depth units (m, ft), temperature units (°C, °F), distance units (NM, km, mi) with optional m/yd/ft for distances under 1000 of those, magnetic or true bearings, decimals, smoothing, stale timeout, per-device source selection |
 | Display | Layout (1, 2 or 4 sections) and the value in each, brightness, colours, rotation, which labels to show, night mode (manual or scheduled), test pattern |
 | Panel | HUB75 driver chip, colour order, clock speed and phase, panel size and chaining; GPIO pins (Waveshare, Matrix Portal) or output connector (HD-WF4). Needs a reboot |
 | System | Firmware info, OTA update, settings export and import, reboot, factory reset |
@@ -156,7 +157,7 @@ sends.
 
 **Layout** (Display tab): 1, 2 or 4 sections, each showing one of *Boat
 speed* (STW or SOG per the Units tab), STW, SOG, AWA, AWS, TWA, TWS, TWD, HDG,
-DTW, BTW, COG, VMG, VMC or DPT. The split follows the panel's shape after rotation:
+DTW, BTW, COG, VMG, VMC, DPT or MTW. The split follows the panel's shape after rotation:
 
 | Panel (after rotation) | 2 sections | 4 sections |
 |---|---|---|

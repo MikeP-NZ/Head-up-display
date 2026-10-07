@@ -46,6 +46,7 @@ struct Settings {
   uint32_t stwFilter = 0;
   uint32_t sogFilter = 0;
   DepthUnit depthUnit = DepthUnit::Meters;
+  TempUnit tempUnit = TempUnit::Celsius;
   DistanceUnit distanceUnit = DistanceUnit::NauticalMiles;
   ShortDistanceUnit shortDistanceUnit = ShortDistanceUnit::Off;
   BearingRef bearingRef = BearingRef::Magnetic;

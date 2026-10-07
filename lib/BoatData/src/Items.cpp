@@ -24,6 +24,7 @@ const ItemInfo kItems[] = {
     {Item::Dpt, "dpt", "DPT", "Depth", ItemFormat::Depth},
     {Item::Btw, "btw", "BTW", "Bearing to waypoint", ItemFormat::Bearing},
     {Item::Cog, "cog", "COG", "Course over ground", ItemFormat::Bearing},
+    {Item::Mtw, "mtw", "MTW", "Water temperature", ItemFormat::Temperature},
 };
 static_assert(sizeof(kItems) / sizeof(kItems[0]) == kItemCount, "item table out of sync");
 
@@ -36,7 +37,7 @@ const QuantityItem kQuantityItems[] = {
     {Quantity::Stw, Item::Stw}, {Quantity::Sog, Item::Sog}, {Quantity::Awa, Item::Awa}, {Quantity::Aws, Item::Aws},
     {Quantity::Twa, Item::Twa}, {Quantity::Tws, Item::Tws}, {Quantity::Twd, Item::Twd}, {Quantity::Hdg, Item::Hdg},
     {Quantity::Dtw, Item::Dtw}, {Quantity::Vmg, Item::Vmg}, {Quantity::Vmc, Item::Vmc}, {Quantity::Dpt, Item::Dpt},
-    {Quantity::Btw, Item::Btw}, {Quantity::Cog, Item::Cog},
+    {Quantity::Btw, Item::Btw}, {Quantity::Cog, Item::Cog}, {Quantity::Mtw, Item::Mtw},
 };
 
 constexpr float kNauticalMile = 1852.0f;  // m
@@ -163,6 +164,9 @@ DisplayValue itemDisplay(Item item, float value, const DisplayUnits& units) {
     case ItemFormat::Depth:
       if (units.depth == DepthUnit::Feet) d.value = value / kFoot;
       break;
+    case ItemFormat::Temperature:
+      if (units.temperature == TempUnit::Fahrenheit) d.value = value * 1.8f + 32.0f;
+      break;
     default:
       break;
   }
@@ -175,6 +179,7 @@ const char* itemUnit(Item item, const DisplayUnits& units) {
     case ItemFormat::Bearing: return units.bearing == BearingRef::True ? "TRUE" : "MAG";
     case ItemFormat::Distance: return distanceLabel(units.distance);
     case ItemFormat::Depth: return units.depth == DepthUnit::Feet ? "FT" : "M";
+    case ItemFormat::Temperature: return units.temperature == TempUnit::Fahrenheit ? "F" : "C";
     default: return "";
   }
 }
@@ -230,6 +235,14 @@ void formatItem(Item item, bool valid, float v, int8_t decimals, char* buf, size
       if (!valid) return dashes(buf, len, 2, 1);
       int d = v < 99.95f ? 1 : 0;
       if (v > 9999) v = 9999;
+      snprintf(buf, len, "%.*f", d, v);
+      padInteger(buf, len, 2);
+      return;
+    }
+    case ItemFormat::Temperature: {
+      if (!valid) return dashes(buf, len, 2, 1);
+      int d = fabsf(v) < 99.95f ? 1 : 0;
+      if (fabsf(v) < 0.05f) v = 0;  // no "-0.0"
       snprintf(buf, len, "%.*f", d, v);
       padInteger(buf, len, 2);
       return;

@@ -36,6 +36,10 @@ constexpr uint32_t kPgnWaterDepth = 128267;
 constexpr uint32_t kPgnCogSogRapid = 129026;
 constexpr uint32_t kPgnNavigationData = 129284;  // fast packet
 constexpr uint32_t kPgnWindData = 130306;
+constexpr uint32_t kPgnEnvironmental = 130310;
+constexpr uint32_t kPgnEnvironmental2 = 130311;
+constexpr uint32_t kPgnTemperature = 130312;
+constexpr uint32_t kPgnTemperatureExt = 130316;
 
 // Decodes a complete PGN payload. Returns true if the PGN is one we
 // understand (even if all its fields are "not available").

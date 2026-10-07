@@ -324,8 +324,8 @@ code { font-family: var(--mono); font-size: 12.5px; background: var(--panel-2); 
           <li>Join the gateway's Wi-Fi with a phone and open <code>http://192.168.4.1</code> (login <code>admin</code> / <code>admin</code> unless changed).</li>
           <li>Open <b>NMEA Server</b>. Enable a server, choose TCP or UDP and a port, and set its data protocol to <b>NMEA 0183</b> or <b>RAW</b>.</li>
           <li>Prefer <b>UDP</b> if chart-plotter apps also use the gateway: a TCP server only accepts 3 connections, and UDP has no limit.</li>
-          <li>For NMEA 0183, check that the transmit filter lets through the sentences for the values you want: <code>VHW</code> (speed through water, heading), <code>RMC</code>/<code>VTG</code> (GPS speed and course), <code>MWV</code> (wind), <code>MWD</code> (wind direction), <code>HDG</code>/<code>HDM</code> (heading), <code>DPT</code>/<code>DBT</code> (depth), <code>RMB</code>/<code>BWC</code> (waypoint distance and bearing) and <code>VPW</code> (VMG).</li>
-          <li>RAW carries the NMEA 2000 messages directly (PGN 128259 speed, 129026 GPS speed and course, 130306 wind, 127250 heading, 127258 variation, 128267 depth, 129284 waypoint), so no filters are involved. VMG to wind has no standard NMEA 2000 message; it needs NMEA 0183 <code>VPW</code>.</li>
+          <li>For NMEA 0183, check that the transmit filter lets through the sentences for the values you want: <code>VHW</code> (speed through water, heading), <code>RMC</code>/<code>VTG</code> (GPS speed and course), <code>MWV</code> (wind), <code>MWD</code> (wind direction), <code>HDG</code>/<code>HDM</code> (heading), <code>DPT</code>/<code>DBT</code> (depth), <code>RMB</code>/<code>BWC</code> (waypoint distance and bearing) and <code>VPW</code> (VMG) and <code>MTW</code> (water temperature).</li>
+          <li>RAW carries the NMEA 2000 messages directly (PGN 128259 speed, 129026 GPS speed and course, 130306 wind, 127250 heading, 127258 variation, 128267 depth, 129284 waypoint, 130310/130311/130312/130316 water temperature), so no filters are involved. VMG to wind has no standard NMEA 2000 message; it needs NMEA 0183 <code>VPW</code>.</li>
         </ol>
       </details>
       <div class="actions"><button class="btn primary" type="submit">Save &amp; reconnect</button></div>
@@ -374,6 +374,12 @@ code { font-family: var(--mono); font-size: 12.5px; background: var(--panel-2); 
           <select id="speed-depthUnit">
             <option value="m">Metres</option>
             <option value="ft">Feet</option>
+          </select>
+        </label>
+        <label class="field"><span>Temperature units</span>
+          <select id="speed-tempUnit">
+            <option value="c">Celsius</option>
+            <option value="f">Fahrenheit</option>
           </select>
         </label>
         <label class="field"><span>Distance units</span>
@@ -608,7 +614,7 @@ code { font-family: var(--mono); font-size: 12.5px; background: var(--panel-2); 
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => Array.from(el.querySelectorAll(s));
 const UNIT_NAMES = { KN: 'knots', 'KM/H': 'km/h', MPH: 'mph', 'M/S': 'm/s', NM: 'nautical miles', KM: 'kilometres', MI: 'miles',
-                     M: 'metres', YD: 'yards', FT: 'feet', MAG: 'magnetic', TRUE: 'true' };
+                     M: 'metres', YD: 'yards', FT: 'feet', MAG: 'magnetic', TRUE: 'true', C: '°C', F: '°F' };
 const BEARING_IDS = ['twd', 'hdg', 'btw', 'cog'];
 const SHORT_UNITS = ['M', 'YD', 'FT'];
 const PIN_NAMES = ['r1', 'g1', 'b1', 'r2', 'g2', 'b2', 'a', 'b', 'c', 'd', 'e', 'lat', 'oe', 'clk'];
@@ -622,6 +628,7 @@ const ITEMS = [
   { id: 'dtw', label: 'DTW', name: 'Distance to waypoint' }, { id: 'vmg', label: 'VMG', name: 'Velocity made good to wind' },
   { id: 'vmc', label: 'VMC', name: 'Velocity made good to waypoint' }, { id: 'dpt', label: 'DPT', name: 'Depth' },
   { id: 'btw', label: 'BTW', name: 'Bearing to waypoint' }, { id: 'cog', label: 'COG', name: 'Course over ground' },
+  { id: 'mtw', label: 'MTW', name: 'Water temperature' },
 ];
 const SPEED_IDS = ['speed', 'stw', 'sog', 'aws', 'tws', 'vmg', 'vmc'];
 const ENV_FOR_BOARD = { 'waveshare-s3-matrix': 'waveshare_s3_matrix', 'huidu-hd-wf4': 'huidu_hd_wf4',
@@ -693,6 +700,7 @@ function fmtValue(id, v, unit) {
     case 'twd': case 'hdg': case 'btw': case 'cog': return String(Math.round(((v % 360) + 360) % 360) % 360).padStart(3, '0') + '°';
     case 'dtw': return SHORT_UNITS.includes(unit) ? v.toFixed(0) : v.toFixed(v < 10 ? 2 : v < 100 ? 1 : 0);
     case 'dpt': return v.toFixed(v < 100 ? 1 : 0);
+    case 'mtw': return v.toFixed(1);
     case 'vmg': return Math.abs(v).toFixed(dec);
     default: return v.toFixed(dec);
   }
@@ -809,6 +817,7 @@ function fillForms() {
   $('#speed-smoothing').value = c.speed.smoothing;
   $('#speed-staleSec').value = c.speed.staleSec;
   $('#speed-depthUnit').value = c.speed.depthUnit || 'm';
+  $('#speed-tempUnit').value = c.speed.tempUnit || 'c';
   $('#speed-distanceUnit').value = c.speed.distanceUnit || 'nm';
   $('#speed-shortDistanceUnit').value = c.speed.shortDistanceUnit || 'off';
   $('#speed-bearingRef').value = c.speed.bearingRef || 'mag';
@@ -1012,6 +1021,7 @@ $('#form-speed').addEventListener('submit', async (ev) => {
       smoothing: Number($('#speed-smoothing').value),
       staleSec: Number($('#speed-staleSec').value),
       depthUnit: $('#speed-depthUnit').value,
+      tempUnit: $('#speed-tempUnit').value,
       distanceUnit: $('#speed-distanceUnit').value,
       shortDistanceUnit: $('#speed-shortDistanceUnit').value,
       bearingRef: $('#speed-bearingRef').value,

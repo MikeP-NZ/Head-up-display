@@ -24,10 +24,12 @@ enum class Item : uint8_t {
   Dpt,
   Btw,
   Cog,
+  Mtw,
   Count,
 };
 
 enum class DepthUnit : uint8_t { Meters = 0, Feet = 1 };
+enum class TempUnit : uint8_t { Celsius = 0, Fahrenheit = 1 };
 enum class DistanceUnit : uint8_t { NauticalMiles = 0, Kilometers = 1, Miles = 2 };
 // Distances that come to less than 1000 of this unit are shown in it instead
 // of the distance unit (Off: always the distance unit).
@@ -36,6 +38,7 @@ enum class ShortDistanceUnit : uint8_t { Off = 0, Meters = 1, Yards = 2, Feet = 
 struct DisplayUnits {
   SpeedUnit speed = SpeedUnit::Knots;
   DepthUnit depth = DepthUnit::Meters;
+  TempUnit temperature = TempUnit::Celsius;
   DistanceUnit distance = DistanceUnit::NauticalMiles;
   ShortDistanceUnit shortDistance = ShortDistanceUnit::Off;
   BearingRef bearing = BearingRef::Magnetic;
@@ -48,6 +51,7 @@ enum class ItemFormat : uint8_t {
   Bearing,    // 000..359
   Distance,   // NM/km/mi, or whole m/yd/ft when short
   Depth,
+  Temperature,  // one decimal
 };
 
 struct ItemInfo {
@@ -81,10 +85,10 @@ struct DisplayValue {
 };
 
 // Internal units -> display units (knots etc., degrees, NM/km/mi or
-// m/yd/ft, m/ft). Wind angles keep their sign: negative is port.
+// m/yd/ft, m/ft, C/F). Wind angles keep their sign: negative is port.
 DisplayValue itemDisplay(Item item, float value, const DisplayUnits& units);
 
-// Unit text for the panel: "KN", "NM", "M", "FT", "MAG", "TRUE"; wind angles
+// Unit text for the panel: "KN", "NM", "M", "FT", "MAG", "TRUE", "C", "F"; wind angles
 // return "" (the side is shown instead). Distances give the long unit; a
 // short distance's unit comes from itemDisplay().
 const char* itemUnit(Item item, const DisplayUnits& units);

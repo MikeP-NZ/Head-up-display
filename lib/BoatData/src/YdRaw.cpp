@@ -93,6 +93,10 @@ bool parseLine(const char* line, Frame& out) {
 namespace {
 
 constexpr float kRad = 57.29578f;  // degrees per radian
+constexpr float kZeroCelsius = 273.15f;  // K
+
+// Temperature sources (PGN 130311/130312/130316): 0 is sea water.
+constexpr uint8_t kTempSourceSea = 0;
 
 int16_t i16(const uint8_t* d) { return static_cast<int16_t>(u16(d)); }
 
@@ -222,6 +226,35 @@ bool decodePgn(uint32_t pgn, const uint8_t* d, size_t len, Decoded& out) {
         out.add(ref == 0 ? Quantity::BtwTrue : Quantity::Btw, wrapBearing(btw * 1e-4f * kRad));
       }
       if (validI16(vmc)) out.add(Quantity::Vmc, vmc * 0.01f);
+      return true;
+    }
+    case kPgnEnvironmental: {
+      // SID, water temperature u16 0.01 K, outside temperature, pressure
+      if (len < 3) return false;
+      uint16_t t = u16(&d[1]);
+      if (validU16(t)) out.add(Quantity::Mtw, t * 0.01f - kZeroCelsius);
+      return true;
+    }
+    case kPgnEnvironmental2: {
+      // SID, temperature source (6 bits) + humidity source, temperature u16
+      // 0.01 K, humidity, pressure
+      if (len < 4) return false;
+      uint16_t t = u16(&d[2]);
+      if ((d[1] & 0x3F) == kTempSourceSea && validU16(t)) out.add(Quantity::Mtw, t * 0.01f - kZeroCelsius);
+      return true;
+    }
+    case kPgnTemperature: {
+      // SID, instance, source, actual temperature u16 0.01 K, set temperature
+      if (len < 5) return false;
+      uint16_t t = u16(&d[3]);
+      if (d[2] == kTempSourceSea && validU16(t)) out.add(Quantity::Mtw, t * 0.01f - kZeroCelsius);
+      return true;
+    }
+    case kPgnTemperatureExt: {
+      // SID, instance, source, actual temperature u24 0.001 K, set temperature
+      if (len < 6) return false;
+      uint32_t t = static_cast<uint32_t>(d[3]) | (static_cast<uint32_t>(d[4]) << 8) | (static_cast<uint32_t>(d[5]) << 16);
+      if (d[2] == kTempSourceSea && t < 0xFFFFFD) out.add(Quantity::Mtw, t * 0.001f - kZeroCelsius);
       return true;
     }
     default:

@@ -10,6 +10,7 @@
 //   bearings (TWD, HDG, BTW, COG)          degrees, 0..360; magnetic, with a
 //                                          *True twin for true bearings
 //   distance (DTW), depth (DPT)            metres
+//   water temperature (MTW)                degrees Celsius
 enum class Quantity : uint8_t {
   Stw,  // speed through water
   Sog,  // speed over ground
@@ -25,6 +26,7 @@ enum class Quantity : uint8_t {
   Dpt,  // water depth
   Btw,  // bearing to waypoint (magnetic)
   Cog,  // course over ground (magnetic)
+  Mtw,  // water temperature
   // The same bearings referenced to true north. BoatModel converts between
   // the two with the most recent magnetic variation (see BoatModel::bearing).
   TwdTrue,

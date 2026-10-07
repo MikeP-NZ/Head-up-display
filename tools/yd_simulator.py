@@ -70,6 +70,9 @@ class Boat:
     def vmc_knots(self):
         return self.sog_knots() * 0.9
 
+    def water_temp(self):  # Celsius
+        return 18.4 + 0.3 * math.sin(self.t() / 300)
+
 
 def nmea(body):
     cs = 0
@@ -99,6 +102,7 @@ def nmea_lines(boat, stw=True, sog=True):
     lines.append(nmea("YDDPT,%.1f,0.0," % boat.depth()))
     lines.append(nmea("YDRMB,A,0.12,L,,WP1,3655.000,S,17450.000,E,%.2f,045.0,%.1f,V,A" % (boat.dtw_nm(), boat.vmc_knots())))
     lines.append(nmea("YDVPW,%.2f,N,,M" % boat.vmg_knots()))
+    lines.append(nmea("YDMTW,%.1f,C" % boat.water_temp()))
     return lines
 
 
@@ -161,6 +165,8 @@ def raw_lines(boat, sid, stw=True, sog=True):
     lines.append(raw_line(130306, 0x10, 2, [sid] + u16(int(boat.tws_knots() * KNOT * 100)) + u16(rad(boat.twd() + boat.variation)) + [0xF8, 0xFF, 0xFF]))
     lines.append(raw_line(127250, 0x11, 2, [sid] + u16(rad(boat.heading())) + [0xFF, 0x7F, 0xFF, 0x7F, 0xFD]))
     lines.append(raw_line(128267, 0x23, 3, [sid] + u32(int(boat.depth() * 100)) + i16(0) + [0xFF]))
+    # Sea temperature (source 0), instance 0
+    lines.append(raw_line(130312, 0x23, 5, [sid, 0x00, 0x00] + u16(int(round((boat.water_temp() + 273.15) * 100))) + [0xFF, 0xFF, 0xFF]))
     nav = [sid] + u32(int(boat.dtw_nm() * 1852 * 100)) + [0x00] + [0xFF] * 26 + i16(int(boat.vmc_knots() * KNOT * 100))
     lines += fast_packet(129284, 0x05, 3, nav, sid % 8)
     return lines

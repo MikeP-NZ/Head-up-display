@@ -18,6 +18,7 @@ const char* quantityLabel(Quantity q) {
     case Quantity::Dpt: return "DPT";
     case Quantity::Btw: return "BTW";
     case Quantity::Cog: return "COG";
+    case Quantity::Mtw: return "MTW";
     case Quantity::TwdTrue: return "TWD";
     case Quantity::HdgTrue: return "HDG";
     case Quantity::BtwTrue: return "BTW";

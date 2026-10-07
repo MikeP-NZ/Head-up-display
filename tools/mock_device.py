@@ -35,7 +35,7 @@ DEFAULTS = {
     "wifi": {"ssid": "", "open": True},
     "portal": {"apMode": "always", "ssid": "", "defaultSsid": "HeadUp-1A2B", "open": False, "hostname": "headup"},
     "data": {"transport": "tcp", "protocol": "auto", "host": "", "port": 1456},
-    "speed": {"source": "prefer_stw", "unit": "kn", "decimals": -1, "smoothing": 1.0, "staleSec": 5, "stwFilter": 0, "sogFilter": 0, "depthUnit": "m",
+    "speed": {"source": "prefer_stw", "unit": "kn", "decimals": -1, "smoothing": 1.0, "staleSec": 5, "stwFilter": 0, "sogFilter": 0, "depthUnit": "m", "tempUnit": "c",
               "distanceUnit": "nm", "shortDistanceUnit": "off", "bearingRef": "mag"},
     "display": {
         "brightness": 160, "speedColor": "#ffffff", "accentColor": "#00a0ff", "showSource": True, "showUnit": True,
@@ -146,6 +146,7 @@ class Device:
             "awa": (awa, ""), "aws": (aws * KNOT * f, unit), "twa": (b.twa(), ""), "tws": (b.tws_knots() * KNOT * f, unit),
             "twd": ((b.twd() + var) % 360, bref), "hdg": ((b.heading() + var) % 360, bref), "dtw": dtw,
             "cog": ((b.heading() + 4 + var) % 360, bref), "btw": ((212 + var) % 360, bref),
+            "mtw": (b.water_temp() * 1.8 + 32, "F") if c["tempUnit"] == "f" else (b.water_temp(), "C"),
             "vmg": (b.vmg_knots() * KNOT * f, unit), "vmc": (b.vmc_knots() * KNOT * f, unit), "dpt": (b.depth() * depth_f, dunit),
         }
 
@@ -204,7 +205,7 @@ class Device:
         d = c["display"]
         p = c["panel"]
         args = [
-            "width=%d" % (p["width"] * p["chain"]), "height=%d" % p["height"], "depthunit=" + c["speed"]["depthUnit"],
+            "width=%d" % (p["width"] * p["chain"]), "height=%d" % p["height"], "depthunit=" + c["speed"]["depthUnit"], "tempunit=" + c["speed"]["tempUnit"],
             "distunit=" + c["speed"]["distanceUnit"], "shortdistunit=" + c["speed"]["shortDistanceUnit"],
             "bearingref=" + c["speed"]["bearingRef"],
             "color=" + d["speedColor"][1:], "accent=" + d["accentColor"][1:], "nightcolor=" + d["night"]["color"][1:],

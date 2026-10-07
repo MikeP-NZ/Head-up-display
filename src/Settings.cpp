@@ -25,6 +25,7 @@ constexpr EnumName<SourceMode> kSourceModes[] = {{SourceMode::Stw, "stw"},
 constexpr EnumName<SpeedUnit> kUnits[] = {
     {SpeedUnit::Knots, "kn"}, {SpeedUnit::Kmh, "kmh"}, {SpeedUnit::Mph, "mph"}, {SpeedUnit::Mps, "mps"}};
 constexpr EnumName<DepthUnit> kDepthUnits[] = {{DepthUnit::Meters, "m"}, {DepthUnit::Feet, "ft"}};
+constexpr EnumName<TempUnit> kTempUnits[] = {{TempUnit::Celsius, "c"}, {TempUnit::Fahrenheit, "f"}};
 constexpr EnumName<DistanceUnit> kDistanceUnits[] = {
     {DistanceUnit::NauticalMiles, "nm"}, {DistanceUnit::Kilometers, "km"}, {DistanceUnit::Miles, "mi"}};
 constexpr EnumName<ShortDistanceUnit> kShortDistanceUnits[] = {{ShortDistanceUnit::Off, "off"},
@@ -171,6 +172,7 @@ DisplayUnits Settings::displayUnits() const {
   DisplayUnits u;
   u.speed = unit;
   u.depth = depthUnit;
+  u.temperature = tempUnit;
   u.distance = distanceUnit;
   u.shortDistance = shortDistanceUnit;
   u.bearing = bearingRef;
@@ -220,6 +222,7 @@ void settingsToJson(const Settings& s, JsonObject root, bool includeSecrets) {
   speed["stwFilter"] = s.stwFilter;
   speed["sogFilter"] = s.sogFilter;
   speed["depthUnit"] = nameOf(kDepthUnits, s.depthUnit);
+  speed["tempUnit"] = nameOf(kTempUnits, s.tempUnit);
   speed["distanceUnit"] = nameOf(kDistanceUnits, s.distanceUnit);
   speed["shortDistanceUnit"] = nameOf(kShortDistanceUnits, s.shortDistanceUnit);
   speed["bearingRef"] = nameOf(kBearingRefs, s.bearingRef);
@@ -299,6 +302,7 @@ bool settingsMergeJson(Settings& s, JsonObjectConst root, SettingsChanges& chang
     m.num(o, "stwFilter", n.stwFilter, 0, 0x2FFFF);
     m.num(o, "sogFilter", n.sogFilter, 0, 0x2FFFF);
     m.choice(o, "depthUnit", kDepthUnits, n.depthUnit);
+    m.choice(o, "tempUnit", kTempUnits, n.tempUnit);
     m.choice(o, "distanceUnit", kDistanceUnits, n.distanceUnit);
     m.choice(o, "shortDistanceUnit", kShortDistanceUnits, n.shortDistanceUnit);
     m.choice(o, "bearingRef", kBearingRefs, n.bearingRef);
