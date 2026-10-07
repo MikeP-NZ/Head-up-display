@@ -49,6 +49,38 @@ int numberWidth(const DigitMetrics& m, int digits, bool dot) {
   return digits * m.w + (digits - 1) * m.gap + (dot ? m.t + m.gap : 0);
 }
 
+// The largest digits that fit `text` in w x h. h is 0 when there are no
+// digit slots.
+DigitMetrics fitDigits(const char* text, int w, int h) {
+  // Count digit slots; '.' takes no slot of its own.
+  int digits = 0;
+  bool dot = false;
+  for (const char* p = text; *p; p++) {
+    if (*p == '.') dot = true;
+    else digits++;
+  }
+  if (digits == 0) return DigitMetrics{0, 0, 0, 0};
+  for (int hh = h; hh >= 7; hh--) {
+    DigitMetrics c = metricsFor(hh);
+    if (numberWidth(c, digits, dot) <= w) return c;
+  }
+  return metricsFor(7);
+}
+
+// Large labels are used where they cost the digits at most this share of
+// their height.
+constexpr int kMaxDigitLossPercent = 15;
+
+bool largeLabelsAffordable(const char* text, int w, int hSmall, int hLarge) {
+  int small = fitDigits(text, w, hSmall).h;
+  int large = fitDigits(text, w, hLarge).h;
+  return large * 100 >= small * (100 - kMaxDigitLossPercent);
+}
+
+// Label rows: TomThumb capitals are 5 px, the 5x7 font's 7 px; plus a 1 px gap.
+constexpr int kSmallRowH = 6;
+constexpr int kLargeRowH = 8;
+
 }  // namespace
 
 Renderer::Renderer(uint16_t width, uint16_t height) : canvas_(new GFXcanvas16(width, height)), width_(width), height_(height) {
@@ -103,23 +135,29 @@ void Renderer::drawTicker(const char* text, int top, uint16_t col, uint32_t nowM
   canvas_->print(text);
 }
 
+int Renderer::labelWidth(const char* text, bool large) {
+  canvas_->setFont(large ? nullptr : &TomThumb);
+  // The 5x7 font's bounds include the blank column after the last letter.
+  return large && *text ? textWidth(text) - 1 : textWidth(text);
+}
+
+void Renderer::drawLabel(const char* text, int x, int capsBottom, bool large, uint16_t col) {
+  canvas_->setFont(large ? nullptr : &TomThumb);
+  canvas_->setTextColor(col);
+  // 5x7: the cursor is the top of the cell. TomThumb: the cursor is the
+  // baseline, one row below the capitals.
+  canvas_->setCursor(x, large ? capsBottom - 6 : capsBottom + 1);
+  canvas_->print(text);
+}
+
 void Renderer::drawNumber(const char* text, int x0, int y0, int w, int h, uint16_t col) {
-  // Count digit slots; '.' takes no slot of its own.
+  DigitMetrics m = fitDigits(text, w, h);
+  if (m.h == 0) return;
   int digits = 0;
   bool dot = false;
   for (const char* p = text; *p; p++) {
     if (*p == '.') dot = true;
     else digits++;
-  }
-  if (digits == 0) return;
-
-  DigitMetrics m = metricsFor(7);
-  for (int hh = h; hh >= 7; hh--) {
-    DigitMetrics c = metricsFor(hh);
-    if (numberWidth(c, digits, dot) <= w) {
-      m = c;
-      break;
-    }
   }
   int total = numberWidth(m, digits, dot);
   int x = x0 + (w - total) / 2;
@@ -214,39 +252,87 @@ void Renderer::drawDash(const DashView& v, uint32_t nowMs) {
     cols = 2;
     rows = 2;
   }
-  for (int i = 0; i < cols * rows && i < static_cast<int>(kMaxSections); i++) {
+  int n = min(cols * rows, static_cast<int>(kMaxSections));
+  auto cellRect = [&](int i, int& x0, int& y0, int& w, int& h) {
     int c = i % cols, r = i / cols;
-    int x0 = cw * c / cols, x1 = cw * (c + 1) / cols;
-    int y0 = ch * r / rows, y1 = ch * (r + 1) / rows;
+    x0 = cw * c / cols;
+    y0 = ch * r / rows;
+    w = cw * (c + 1) / cols - x0;
+    h = ch * (r + 1) / rows - y0;
     if (c > 0) {
-      // A faint divider keeps one section's unit apart from the next label.
-      canvas_->drawFastVLine(x0, y0, y1 - y0, rgb565(scaleRgb(night_ ? style_.nightRgb : style_.accentRgb, 25)));
-      x0++;
+      x0++;  // the divider
+      w--;
     }
-    drawCell(v.items[i], x0, y0, x1 - x0, y1 - y0);
+  };
+
+  // Large labels and units where every section has room for them, so all
+  // sections use the same sizes.
+  CellFonts fonts{true, true};
+  for (int i = 0; i < n; i++) {
+    if (v.items[i].item == Item::None) continue;
+    int x0, y0, w, h;
+    cellRect(i, x0, y0, w, h);
+    CellFonts f = cellFonts(v.items[i], w, h);
+    fonts.largeLabel &= f.largeLabel;
+    fonts.largeUnit &= f.largeUnit;
+  }
+
+  for (int i = 0; i < n; i++) {
+    int x0, y0, w, h;
+    cellRect(i, x0, y0, w, h);
+    if (i % cols > 0) {
+      // A faint divider keeps one section's unit apart from the next label.
+      canvas_->drawFastVLine(x0 - 1, y0, h, rgb565(scaleRgb(night_ ? style_.nightRgb : style_.accentRgb, 25)));
+    }
+    drawCell(v.items[i], x0, y0, w, h, fonts);
   }
   canvas_->setFont(nullptr);
 }
 
-// One section: small label top left, unit (or P/S) top right, digits below.
-void Renderer::drawCell(const ItemView& item, int x, int y, int w, int h) {
-  if (item.item == Item::None) return;
-  canvas_->setFont(&TomThumb);
-  const int labelH = 6;  // TomThumb caps are 5 px, plus a 1 px gap
-
-  if (style_.showSource) {
-    canvas_->setTextColor(accentColor());
-    canvas_->setCursor(x + 1, y + 5);
-    canvas_->print(itemLabel(item));
-  }
-
+// The unit, or P/S for a wind angle. For sizing, a wind angle always counts
+// its side so the fonts don't change as the wind crosses the bow.
+const char* Renderer::cellTag(const ItemView& item, bool forSizing) const {
+  bool windAngle = itemInfo(item.item).format == ItemFormat::WindAngle;
+  if (forSizing && windAngle) return "P";
   char side = item.valid ? itemSide(item.item, item.value) : 0;
-  char sideText[2] = {side, 0};
-  const char* tag = side ? sideText : style_.showUnit ? item.unit : "";
+  if (side == 'P') return "P";
+  if (side == 'S') return "S";
+  return style_.showUnit ? item.unit : "";
+}
+
+// Which parts of one section's label row can use the 5x7 font: the row must
+// fit across the section, and the taller row must not shrink the digits much.
+Renderer::CellFonts Renderer::cellFonts(const ItemView& item, int w, int h) {
+  CellFonts f;
+  const char* label = style_.showSource ? itemLabel(item) : "";
+  const char* tag = cellTag(item, true);
+  char text[12];
+  formatItem(item.item, item.valid, item.value, style_.decimals, text, sizeof(text), item.shortDistance);
+  if (!largeLabelsAffordable(text, w - 2, h - kSmallRowH, h - kLargeRowH)) return f;
+  // At least a letter's width between label and unit, so they don't read as
+  // one word.
+  int room = w - 2;
+  int gap = *label && *tag ? 4 : 0;
+  int largeLabel = labelWidth(label, true), largeTag = labelWidth(tag, true);
+  f.largeUnit = largeLabel + gap + largeTag <= room;
+  f.largeLabel = f.largeUnit || largeLabel + gap + labelWidth(tag, false) <= room;
+  return f;
+}
+
+// One section: label top left, unit (or P/S) top right, digits below.
+void Renderer::drawCell(const ItemView& item, int x, int y, int w, int h, CellFonts fonts) {
+  if (item.item == Item::None) return;
+  bool largeRow = fonts.largeLabel || fonts.largeUnit;
+  const int labelH = largeRow ? kLargeRowH : kSmallRowH;
+  const int capsBottom = y + labelH - 2;
+
+  if (style_.showSource) drawLabel(itemLabel(item), x + 1, capsBottom, fonts.largeLabel, accentColor());
+
+  const char* tag = cellTag(item, false);
   if (*tag) {
-    canvas_->setTextColor(side ? valueColor(item) : accentColor());
-    canvas_->setCursor(x + w - textWidth(tag) - 1, y + 5);
-    canvas_->print(tag);
+    bool side = itemInfo(item.item).format == ItemFormat::WindAngle && item.valid && itemSide(item.item, item.value);
+    int tw = labelWidth(tag, fonts.largeUnit);
+    drawLabel(tag, x + w - tw - 1, capsBottom, fonts.largeUnit, side ? valueColor(item) : accentColor());
   }
 
   char text[12];
@@ -282,27 +368,30 @@ void Renderer::drawSingle(const DashView& dash, uint32_t nowMs) {
   // Short panels (64x32): label rows above and below would halve the digits,
   // so put the labels in a narrow column on the right instead.
   if (ch < 48 && labels && dash.message.length() == 0) {
-    canvas_->setFont(&TomThumb);
-    int colW = 0;
-    if (showUnit) colW = max(colW, textWidth(unit));
-    if (showLabel) colW = max(colW, textWidth(label));
-    if (style_.showStatus) colW = max(colW, 7);
-    int colX = cw - colW - 1;
+    // Wind angles size the column for PORT/STBD, so the font doesn't change
+    // as the wind crosses the bow.
+    const char* sizingUnit = itemInfo(v.item).format == ItemFormat::WindAngle ? "PORT" : unit;
+    auto columnWidth = [&](bool large) {
+      int colW = 0;
+      if (showUnit) colW = max(colW, labelWidth(sizingUnit, large));
+      if (showLabel) colW = max(colW, labelWidth(label, large));
+      if (style_.showStatus) colW = max(colW, 7);
+      return colW;
+    };
+    // The 5x7 font where the wider column costs the digits little height.
+    int smallW = columnWidth(false), largeW = columnWidth(true);
+    bool large = fitDigits(text, cw - largeW - 2, ch - 2).h * 100 >=
+                 fitDigits(text, cw - smallW - 2, ch - 2).h * (100 - kMaxDigitLossPercent);
+    int colX = cw - (large ? largeW : smallW) - 1;
     drawNumber(text, 0, 1, colX - 1, ch - 2, digitColor);
     if (style_.showStatus) {
       canvas_->fillRect(cw - 7, 1, 3, 3, wifiDot);
       canvas_->fillRect(cw - 3, 1, 3, 3, dataDot);
     }
     if (showLabel && (v.valid || v.item != Item::Speed)) {
-      canvas_->setTextColor(accentColor());
-      canvas_->setCursor(colX, style_.showStatus ? 11 : 6);
-      canvas_->print(label);
+      drawLabel(label, colX, style_.showStatus ? (large ? 12 : 10) : (large ? 7 : 5), large, accentColor());
     }
-    if (showUnit) {
-      canvas_->setTextColor(unitColor);
-      canvas_->setCursor(colX, ch - 2);
-      canvas_->print(unit);
-    }
+    if (showUnit) drawLabel(unit, colX, ch - 3, large, unitColor);
     canvas_->setFont(nullptr);
     return;
   }
@@ -365,24 +454,33 @@ void Renderer::drawInfo(const InfoView& v, uint32_t page) {
     boat[nb++] = {v.hostname + ".local", value};
   }
 
+  // A group uses the 5x7 font when all its lines fit across the panel.
+  canvas_->setTextSize(1);
+  auto fitsLarge = [&](const Line* lines, int n) {
+    for (int i = 0; i < n; i++) {
+      if (labelWidth(lines[i].text.c_str(), true) > canvas_->width() - 2) return false;
+    }
+    return true;
+  };
+  bool portalLarge = fitsLarge(portal, np), boatLarge = fitsLarge(boat, nb);
+  // 5x7 lines are 9 px apart (with descenders), TomThumb lines 7 px.
+  auto perPage = [&](bool large) { return max(1, (canvas_->height() - 1) / (large ? 9 : 7)); };
+
   // Each group starts on a fresh page; short panels split a group over pages.
-  int perPage = max(1, (canvas_->height() - 1) / 7);
-  int portalPages = (np + perPage - 1) / perPage;
-  int boatPages = (nb + perPage - 1) / perPage;
+  int portalPages = (np + perPage(portalLarge) - 1) / perPage(portalLarge);
+  int boatPages = (nb + perPage(boatLarge) - 1) / perPage(boatLarge);
   int p = page % (portalPages + boatPages);
-  const Line* lines = p < portalPages ? portal : boat;
-  int count = p < portalPages ? np : nb;
-  int first = (p < portalPages ? p : p - portalPages) * perPage;
+  bool onPortal = p < portalPages;
+  const Line* lines = onPortal ? portal : boat;
+  int count = onPortal ? np : nb;
+  bool large = onPortal ? portalLarge : boatLarge;
+  int first = (onPortal ? p : p - portalPages) * perPage(large);
 
   canvas_->fillScreen(0);
-  canvas_->setFont(&TomThumb);
-  canvas_->setTextSize(1);
-  int y = 6;
-  for (int i = first; i < count && i < first + perPage; i++) {
-    canvas_->setTextColor(lines[i].color);
-    canvas_->setCursor(1, y);
-    canvas_->print(lines[i].text);
-    y += 7;
+  int capsBottom = large ? 7 : 5;
+  for (int i = first; i < count && i < first + perPage(large); i++) {
+    drawLabel(lines[i].text.c_str(), 1, capsBottom, large, lines[i].color);
+    capsBottom += large ? 9 : 7;
   }
   canvas_->setFont(nullptr);
 }

@@ -176,8 +176,11 @@ DTW, BTW, COG, VMG, VMC, DPT or MTW. The split follows the panel's shape after r
 | 64×64 | stacked, 64×32 | 2×2 grid of 32×32 |
 | 128×32 (two chained) | side by side, 64×32 | 4 columns of 32×32 |
 
-Each section has a small label top left (`STW`, `AWA`, …), the unit top right,
-and the value below. Wind angles show 0–180° with **P**/**S**, the digits
+Each section has a label top left (`STW`, `AWA`, …), the unit top right,
+and the value below. Labels and units use a 5×7 font where the section has
+room for it without shrinking the digits much (for example 32×32 sections),
+and a tiny 3×5 font otherwise. All sections on screen use the same sizes.
+Wind angles show 0–180° with **P**/**S**, the digits
 tinted red for port and green for starboard (single colour in night mode).
 Headings and TWD show three digits (`005`). Sections without data show
 dashes. While Wi-Fi, the gateway link or the data stream is down, the panel
@@ -195,7 +198,10 @@ switches to the full-screen layout with a scrolling problem description.
   `NO AWA DATA` …).
 
 On short panels (64×32), the labels move to a narrow column on the right so the
-digits can use the full height.
+digits can use the full height. The column uses the 5×7 font when the panel
+is wide enough (e.g. two chained panels), and the 3×5 font otherwise. The
+connection info screen likewise uses the 5×7 font when its lines fit across the
+panel.
 
 ## Button
 

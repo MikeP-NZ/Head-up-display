@@ -80,11 +80,22 @@ class Renderer {
   uint16_t okColor() const;
   uint16_t errColor() const;
   void drawSingle(const DashView& v, uint32_t nowMs);
-  void drawCell(const ItemView& item, int x, int y, int w, int h);
+  // Fonts for one section's label row, see drawDash().
+  struct CellFonts {
+    bool largeLabel = false;
+    bool largeUnit = false;
+  };
+  CellFonts cellFonts(const ItemView& item, int w, int h);
+  void drawCell(const ItemView& item, int x, int y, int w, int h, CellFonts fonts);
+  const char* cellTag(const ItemView& item, bool forSizing) const;
   const char* itemLabel(const ItemView& item) const;
   uint16_t valueColor(const ItemView& item) const;
   void drawNumber(const char* text, int x0, int y0, int w, int h, uint16_t col);
   int textWidth(const char* text);
+  // Label text in the 5x7 font (large) or TomThumb (small), placed by the
+  // bottom row of its capitals so both sizes share a baseline.
+  int labelWidth(const char* text, bool large);
+  void drawLabel(const char* text, int x, int capsBottom, bool large, uint16_t col);
   void drawCentered(const char* text, int top, uint16_t col);
   void drawTicker(const char* text, int top, uint16_t col, uint32_t nowMs);
 
