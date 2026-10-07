@@ -306,3 +306,10 @@ R1 4, G1 5, B1 6, R2 7, G2 15, B2 16, A 18, B 8, C 3, D 42, E 9, LAT 40, OE 2, C
 Matrix Portal S3, from Adafruit's Protomatter examples:
 R1 42, G1 41, B1 40, R2 38, G2 39, B2 37, A 45, B 36, C 48, D 35, E 21, LAT 47, OE 14, CLK 2.
 The HD-WF4 map is in its [flashing guide](docs/flashing-hd-wf4.md#how-the-four-outputs-work).
+
+## License
+
+MIT, see [LICENSE](LICENSE). The firmware is built with third-party libraries
+under MIT, BSD, Apache-2.0 and LGPL-2.1 licenses; their notices are in
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). Include that file when you
+share a `firmware.bin`.
