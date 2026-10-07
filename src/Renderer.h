@@ -11,7 +11,9 @@ class GFXcanvas16;
 struct ItemView {
   Item item = Item::None;
   bool valid = false;
-  float value = 0;               // display units (see itemDisplayValue)
+  float value = 0;               // display units (see itemDisplay)
+  const char* unit = "";         // see itemDisplay
+  bool shortDistance = false;    // see itemDisplay
   Quantity kind = Quantity::Stw;  // Item::Speed: which speed is shown
 };
 
@@ -44,8 +46,6 @@ struct RenderStyle {
   bool showSource = true;  // item label (STW/SOG, AWA, ...)
   bool showUnit = true;
   bool showStatus = true;
-  SpeedUnit unit = SpeedUnit::Knots;
-  DepthUnit depthUnit = DepthUnit::Meters;
   int8_t decimals = -1;
   uint8_t rotation = 0;
 };

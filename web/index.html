@@ -324,8 +324,8 @@ code { font-family: var(--mono); font-size: 12.5px; background: var(--panel-2); 
           <li>Join the gateway's Wi-Fi with a phone and open <code>http://192.168.4.1</code> (login <code>admin</code> / <code>admin</code> unless changed).</li>
           <li>Open <b>NMEA Server</b>. Enable a server, choose TCP or UDP and a port, and set its data protocol to <b>NMEA 0183</b> or <b>RAW</b>.</li>
           <li>Prefer <b>UDP</b> if chart-plotter apps also use the gateway: a TCP server only accepts 3 connections, and UDP has no limit.</li>
-          <li>For NMEA 0183, check that the transmit filter lets through the sentences for the values you want: <code>VHW</code> (speed through water, heading), <code>RMC</code>/<code>VTG</code> (GPS speed), <code>MWV</code> (wind), <code>MWD</code> (wind direction), <code>HDG</code>/<code>HDM</code> (heading), <code>DPT</code>/<code>DBT</code> (depth), <code>RMB</code>/<code>BWC</code> (waypoint) and <code>VPW</code> (VMG).</li>
-          <li>RAW carries the NMEA 2000 messages directly (PGN 128259 speed, 129026 GPS speed, 130306 wind, 127250 heading, 128267 depth, 129284 waypoint), so no filters are involved. VMG to wind has no standard NMEA 2000 message; it needs NMEA 0183 <code>VPW</code>.</li>
+          <li>For NMEA 0183, check that the transmit filter lets through the sentences for the values you want: <code>VHW</code> (speed through water, heading), <code>RMC</code>/<code>VTG</code> (GPS speed and course), <code>MWV</code> (wind), <code>MWD</code> (wind direction), <code>HDG</code>/<code>HDM</code> (heading), <code>DPT</code>/<code>DBT</code> (depth), <code>RMB</code>/<code>BWC</code> (waypoint distance and bearing) and <code>VPW</code> (VMG).</li>
+          <li>RAW carries the NMEA 2000 messages directly (PGN 128259 speed, 129026 GPS speed and course, 130306 wind, 127250 heading, 127258 variation, 128267 depth, 129284 waypoint), so no filters are involved. VMG to wind has no standard NMEA 2000 message; it needs NMEA 0183 <code>VPW</code>.</li>
         </ol>
       </details>
       <div class="actions"><button class="btn primary" type="submit">Save &amp; reconnect</button></div>
@@ -376,6 +376,29 @@ code { font-family: var(--mono); font-size: 12.5px; background: var(--panel-2); 
             <option value="ft">Feet</option>
           </select>
         </label>
+        <label class="field"><span>Distance units</span>
+          <select id="speed-distanceUnit">
+            <option value="nm">Nautical miles</option>
+            <option value="km">Kilometres</option>
+            <option value="mi">Miles</option>
+          </select>
+        </label>
+        <label class="field"><span>Short distances</span>
+          <select id="speed-shortDistanceUnit">
+            <option value="off">Same as distance units</option>
+            <option value="m">Metres</option>
+            <option value="yd">Yards</option>
+            <option value="ft">Feet</option>
+          </select>
+          <div class="hint">Distances under 1000 of this unit are shown in it, as whole numbers.</div>
+        </label>
+        <label class="field"><span>Bearings and headings</span>
+          <select id="speed-bearingRef">
+            <option value="mag">Magnetic</option>
+            <option value="true">True</option>
+          </select>
+          <div class="hint">Applies to HDG, COG, BTW and TWD. Converting between the two needs the magnetic variation, which GPS sends (RMC, PGN 127258).</div>
+        </label>
         <label class="field"><span>Speed decimals</span>
           <select id="speed-decimals">
             <option value="-1">Automatic (1 below 100)</option>
@@ -419,7 +442,7 @@ code { font-family: var(--mono); font-size: 12.5px; background: var(--panel-2); 
         <div class="hint" id="layout-hint"></div>
       </div>
       <div class="sections" id="section-pickers"></div>
-      <div class="hint">Wind angles show 0–180° with P (port, red) or S (starboard, green). Headings and wind direction are magnetic. Sections without data show dashes.</div>
+      <div class="hint">Wind angles show 0–180° with P (port, red) or S (starboard, green). Headings, course, bearing and wind direction are true or magnetic as set on the Units tab. Short distances show as whole numbers. Sections without data show dashes.</div>
     </form>
 
     <form class="card" id="form-display">
@@ -584,7 +607,10 @@ code { font-family: var(--mono); font-size: 12.5px; background: var(--panel-2); 
 'use strict';
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => Array.from(el.querySelectorAll(s));
-const UNIT_NAMES = { KN: 'knots', 'KM/H': 'km/h', MPH: 'mph', 'M/S': 'm/s', NM: 'nautical miles', M: 'metres', FT: 'feet', MAG: 'magnetic' };
+const UNIT_NAMES = { KN: 'knots', 'KM/H': 'km/h', MPH: 'mph', 'M/S': 'm/s', NM: 'nautical miles', KM: 'kilometres', MI: 'miles',
+                     M: 'metres', YD: 'yards', FT: 'feet', MAG: 'magnetic', TRUE: 'true' };
+const BEARING_IDS = ['twd', 'hdg', 'btw', 'cog'];
+const SHORT_UNITS = ['M', 'YD', 'FT'];
 const PIN_NAMES = ['r1', 'g1', 'b1', 'r2', 'g2', 'b2', 'a', 'b', 'c', 'd', 'e', 'lat', 'oe', 'clk'];
 // Fallback when the firmware does not send its item list.
 const ITEMS = [
@@ -592,9 +618,10 @@ const ITEMS = [
   { id: 'stw', label: 'STW', name: 'Speed through water' }, { id: 'sog', label: 'SOG', name: 'Speed over ground' },
   { id: 'awa', label: 'AWA', name: 'Apparent wind angle' }, { id: 'aws', label: 'AWS', name: 'Apparent wind speed' },
   { id: 'twa', label: 'TWA', name: 'True wind angle' }, { id: 'tws', label: 'TWS', name: 'True wind speed' },
-  { id: 'twd', label: 'TWD', name: 'True wind direction (magnetic)' }, { id: 'hdg', label: 'HDG', name: 'Heading (magnetic)' },
+  { id: 'twd', label: 'TWD', name: 'True wind direction' }, { id: 'hdg', label: 'HDG', name: 'Heading' },
   { id: 'dtw', label: 'DTW', name: 'Distance to waypoint' }, { id: 'vmg', label: 'VMG', name: 'Velocity made good to wind' },
   { id: 'vmc', label: 'VMC', name: 'Velocity made good to waypoint' }, { id: 'dpt', label: 'DPT', name: 'Depth' },
+  { id: 'btw', label: 'BTW', name: 'Bearing to waypoint' }, { id: 'cog', label: 'COG', name: 'Course over ground' },
 ];
 const SPEED_IDS = ['speed', 'stw', 'sog', 'aws', 'tws', 'vmg', 'vmc'];
 const ENV_FOR_BOARD = { 'waveshare-s3-matrix': 'waveshare_s3_matrix', 'huidu-hd-wf4': 'huidu_hd_wf4',
@@ -654,7 +681,7 @@ function fmtOffset(min) {
 function escapeHtml(s) { return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 function itemList() { return (cfg && cfg.itemList) || ITEMS; }
 // A value from /api/status, in display units, as text for the portal.
-function fmtValue(id, v) {
+function fmtValue(id, v, unit) {
   if (v == null) return '—';
   const dec = cfg && cfg.speed.decimals >= 0 ? cfg.speed.decimals : 1;
   switch (id) {
@@ -663,8 +690,8 @@ function fmtValue(id, v) {
       const side = a === 0 || a === 180 ? '' : v < 0 ? ' <span class="port">P</span>' : ' <span class="stbd">S</span>';
       return a + '°' + side;
     }
-    case 'twd': case 'hdg': return String(Math.round(((v % 360) + 360) % 360) % 360).padStart(3, '0') + '°';
-    case 'dtw': return v.toFixed(v < 10 ? 2 : v < 100 ? 1 : 0);
+    case 'twd': case 'hdg': case 'btw': case 'cog': return String(Math.round(((v % 360) + 360) % 360) % 360).padStart(3, '0') + '°';
+    case 'dtw': return SHORT_UNITS.includes(unit) ? v.toFixed(0) : v.toFixed(v < 10 ? 2 : v < 100 ? 1 : 0);
     case 'dpt': return v.toFixed(v < 100 ? 1 : 0);
     case 'vmg': return Math.abs(v).toFixed(dec);
     default: return v.toFixed(dec);
@@ -782,6 +809,9 @@ function fillForms() {
   $('#speed-smoothing').value = c.speed.smoothing;
   $('#speed-staleSec').value = c.speed.staleSec;
   $('#speed-depthUnit').value = c.speed.depthUnit || 'm';
+  $('#speed-distanceUnit').value = c.speed.distanceUnit || 'nm';
+  $('#speed-shortDistanceUnit').value = c.speed.shortDistanceUnit || 'off';
+  $('#speed-bearingRef').value = c.speed.bearingRef || 'mag';
   syncSmoothing();
   fillFilterSelects();
 
@@ -982,6 +1012,9 @@ $('#form-speed').addEventListener('submit', async (ev) => {
       smoothing: Number($('#speed-smoothing').value),
       staleSec: Number($('#speed-staleSec').value),
       depthUnit: $('#speed-depthUnit').value,
+      distanceUnit: $('#speed-distanceUnit').value,
+      shortDistanceUnit: $('#speed-shortDistanceUnit').value,
+      bearingRef: $('#speed-bearingRef').value,
       stwFilter: Number($('#speed-stwFilter').value),
       sogFilter: Number($('#speed-sogFilter').value),
     },
@@ -1274,15 +1307,15 @@ function renderStatus(s) {
   const vals = s.values || {};
   $('#values').innerHTML = itemList().filter(it => vals[it.id]).map(it => {
     const v = vals[it.id];
-    const unit = ['awa', 'twa'].includes(it.id) ? (Math.abs(v.value) < 0.5 || Math.abs(v.value) >= 179.5 ? 'degrees' : v.value < 0 ? 'port' : 'starboard') : it.id === 'twd' || it.id === 'hdg' ? 'magnetic' : (UNIT_NAMES[v.unit] || v.unit || '').toLowerCase();
-    return `<div class="val${v.valid ? '' : ' off'}"><span class="lbl">${it.label}</span><b>${v.valid ? fmtValue(it.id, v.value) : '—'}</b><small title="${escapeHtml(it.name)}">${escapeHtml(v.valid ? unit || it.name : it.name)}</small></div>`;
+    const unit = ['awa', 'twa'].includes(it.id) ? (Math.abs(v.value) < 0.5 || Math.abs(v.value) >= 179.5 ? 'degrees' : v.value < 0 ? 'port' : 'starboard') : (UNIT_NAMES[v.unit] || v.unit || '').toLowerCase();
+    return `<div class="val${v.valid ? '' : ' off'}"><span class="lbl">${it.label}</span><b>${v.valid ? fmtValue(it.id, v.value, v.unit) : '—'}</b><small title="${escapeHtml(it.name)}">${escapeHtml(v.valid ? unit || it.name : it.name)}</small></div>`;
   }).join('');
 
   $('#steps').innerHTML = stepsFor(s).map(x => `<li><span class="dot ${x.state === 'idle' ? '' : x.state}"></span><div><b>${x.title}</b><div class="hint">${escapeHtml(x.hint)}</div></div></li>`).join('');
 
   const rows = s.sources.slice().sort((a, b) => a.kind.localeCompare(b.kind) || a.age - b.age);
   $('#sources').innerHTML = rows.length
-    ? rows.map(r => `<tr><td>${escapeHtml(sourceLabel(r.id))}</td><td>${r.kind}</td><td>${/^\d+$/.test(r.via) ? 'PGN ' + r.via : r.via}</td><td>${fmtValue(r.kind.toLowerCase(), r.value)}${r.unit && !['AWA', 'TWA', 'TWD', 'HDG'].includes(r.kind) ? ' ' + escapeHtml(r.unit.toLowerCase()) : ''}${!r.unit && ['TWD', 'HDG'].includes(r.kind) ? ' true <span class="muted">(no variation yet)</span>' : ''}</td><td>${ago(r.age)}</td><td>${r.count}</td></tr>`).join('')
+    ? rows.map(r => `<tr><td>${escapeHtml(sourceLabel(r.id))}</td><td>${r.kind}</td><td>${/^\d+$/.test(r.via) ? 'PGN ' + r.via : r.via}</td><td>${fmtValue(r.kind.toLowerCase(), r.value, r.unit)}${!r.unit ? '' : BEARING_IDS.includes(r.kind.toLowerCase()) ? ' ' + UNIT_NAMES[r.unit] : ' ' + escapeHtml(r.unit.toLowerCase())}</td><td>${ago(r.age)}</td><td>${r.count}</td></tr>`).join('')
     : '<tr><td colspan="6" class="muted">Nothing yet.</td></tr>';
 
   const d = s.data;

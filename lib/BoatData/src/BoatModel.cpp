@@ -114,31 +114,15 @@ void BoatModel::ingest(const Decoded& d, uint32_t sourceId, const char* via, uin
 void BoatModel::ingest(Quantity q, float value, uint32_t sourceId, const char* via, uint32_t nowMs) {
   if (!(value == value)) return;  // NaN
 
-  switch (q) {
-    case Quantity::Variation:
-      if (value < -180 || value > 180) return;
-      hasVariation_ = true;
-      variation_ = value;
-      variationMs_ = nowMs;
-      return;
-    case Quantity::HdgTrue:
-    case Quantity::TwdTrue: {
-      // Shown as magnetic: true - variation (east positive). Without a
-      // variation the value cannot be shown.
-      float var;
-      if (!variation(var, nowMs)) {
-        // Still list the device, so the portal shows the value arrives.
-        recordSource(q, wrapBearing(value), sourceId, via, nowMs);
-        return;
-      }
-      q = q == Quantity::HdgTrue ? Quantity::Hdg : Quantity::Twd;
-      value = wrapBearing(value - var);
-      break;
-    }
-    default:
-      break;
+  if (q == Quantity::Variation) {
+    if (value < -180 || value > 180) return;
+    hasVariation_ = true;
+    variation_ = value;
+    variationMs_ = nowMs;
+    return;
   }
   if (q >= Quantity::Count) return;
+  if (isBearing(q)) value = wrapBearing(value);
 
   switch (q) {
     case Quantity::Stw:
@@ -215,4 +199,20 @@ BoatModel::Reading BoatModel::speed(uint32_t nowMs) const {
     case SourceMode::PreferSog: return sog.valid || !stw.valid ? sog : stw;
   }
   return stw;
+}
+
+BoatModel::Reading BoatModel::bearing(Quantity q, BearingRef ref, uint32_t nowMs) const {
+  if (!isBearing(q)) return get(q, nowMs);
+  Quantity magnetic = magneticTwin(q);
+  Quantity want = ref == BearingRef::True ? trueTwin(magnetic) : magnetic;
+  Quantity other = ref == BearingRef::True ? magnetic : trueTwin(magnetic);
+  Reading r = get(want, nowMs);
+  if (r.valid) return r;
+  Reading o = get(other, nowMs);
+  float var;
+  if (!o.valid || !variation(var, nowMs)) return r;
+  // true = magnetic + variation (east positive)
+  o.value = wrapBearing(ref == BearingRef::True ? o.value + var : o.value - var);
+  o.q = want;
+  return o;
 }

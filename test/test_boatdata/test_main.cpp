@@ -47,6 +47,7 @@ static void test_rmc_active_gives_sog_and_time() {
   TEST_ASSERT_EQUAL(ParseResult::Ok,
                     nmea0183::parse("$YDRMC,123519.00,A,4807.038,N,01131.000,E,6.4,84.4,230394,3.1,W,A*15", s));
   TEST_ASSERT_FLOAT_WITHIN(0.001f, 6.4f, valKn(s.data, Quantity::Sog));
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, 84.4f, val(s.data, Quantity::CogTrue));
   TEST_ASSERT_FLOAT_WITHIN(0.001f, -3.1f, val(s.data, Quantity::Variation));
   TEST_ASSERT_TRUE(s.data.hasTime);
   TEST_ASSERT_EQUAL_INT64(764426119, s.data.epochSeconds);
@@ -63,9 +64,12 @@ static void test_vtg_valid_and_invalid_mode() {
   nmea0183::Sentence s;
   TEST_ASSERT_EQUAL(ParseResult::Ok, nmea0183::parse("$YDVTG,054.7,T,034.4,M,005.5,N,010.2,K,A*2F", s));
   TEST_ASSERT_FLOAT_WITHIN(0.001f, 5.5f, valKn(s.data, Quantity::Sog));
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, 54.7f, val(s.data, Quantity::CogTrue));
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, 34.4f, val(s.data, Quantity::Cog));
 
   TEST_ASSERT_EQUAL(ParseResult::Ok, nmea0183::parse("$YDVTG,054.7,T,034.4,M,005.5,N,010.2,K,N*20", s));
   TEST_ASSERT_FALSE(s.data.has(Quantity::Sog));
+  TEST_ASSERT_FALSE(s.data.has(Quantity::Cog));
 }
 
 static void test_vbw_gives_both_speeds() {
@@ -120,11 +124,11 @@ static void test_vwr_port_side_is_negative() {
   TEST_ASSERT_FLOAT_WITHIN(0.01f, 9.0f, valKn(s.data, Quantity::Tws));
 }
 
-static void test_mwd_prefers_magnetic() {
+static void test_mwd_both_references() {
   nmea0183::Sentence s;
   TEST_ASSERT_EQUAL(ParseResult::Ok, nmea0183::parse("$WIMWD,270.0,T,250.5,M,12.0,N,6.2,M", s));
   TEST_ASSERT_FLOAT_WITHIN(0.01f, 250.5f, val(s.data, Quantity::Twd));
-  TEST_ASSERT_FALSE(s.data.has(Quantity::TwdTrue));
+  TEST_ASSERT_FLOAT_WITHIN(0.01f, 270.0f, val(s.data, Quantity::TwdTrue));
   TEST_ASSERT_FALSE(s.data.has(Quantity::Tws));
   TEST_ASSERT_EQUAL(ParseResult::Ok, nmea0183::parse("$WIMWD,270.0,T,,M,12.0,N,6.2,M", s));
   TEST_ASSERT_FLOAT_WITHIN(0.01f, 270.0f, val(s.data, Quantity::TwdTrue));
@@ -156,6 +160,7 @@ static void test_waypoint_sentences() {
   TEST_ASSERT_EQUAL(ParseResult::Ok,
                     nmea0183::parse("$GPRMB,A,0.66,L,003,004,4917.24,N,12309.57,W,001.3,052.5,000.5,V,A", s));
   TEST_ASSERT_FLOAT_WITHIN(0.1f, 1.3f * 1852, val(s.data, Quantity::Dtw));
+  TEST_ASSERT_FLOAT_WITHIN(0.01f, 52.5f, val(s.data, Quantity::BtwTrue));
   TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.5f, valKn(s.data, Quantity::Vmc));
   TEST_ASSERT_EQUAL(ParseResult::Ok,
                     nmea0183::parse("$GPRMB,V,0.66,L,003,004,4917.24,N,12309.57,W,001.3,052.5,000.5,V,A", s));
@@ -163,6 +168,8 @@ static void test_waypoint_sentences() {
   TEST_ASSERT_EQUAL(ParseResult::Ok,
                     nmea0183::parse("$GPBWC,220516,5130.02,N,00046.34,W,213.8,T,218.0,M,0004.6,N,EGLM,A", s));
   TEST_ASSERT_FLOAT_WITHIN(0.1f, 4.6f * 1852, val(s.data, Quantity::Dtw));
+  TEST_ASSERT_FLOAT_WITHIN(0.01f, 213.8f, val(s.data, Quantity::BtwTrue));
+  TEST_ASSERT_FLOAT_WITHIN(0.01f, 218.0f, val(s.data, Quantity::Btw));
 }
 
 static void test_vpw_vmg() {
@@ -223,6 +230,12 @@ static void test_decode_129026_cog_sog() {
   Decoded d;
   TEST_ASSERT_TRUE(ydraw::decodePgn(f.pgn, f.data, f.len, d));
   TEST_ASSERT_FLOAT_WITHIN(0.0001f, 2.57f, val(d, Quantity::Sog));
+  TEST_ASSERT_FLOAT_WITHIN(0.01f, 26.70f, val(d, Quantity::CogTrue));  // 0x1234 * 1e-4 rad
+  TEST_ASSERT_FALSE(d.has(Quantity::Cog));
+
+  TEST_ASSERT_TRUE(ydraw::parseLine("10:00:00.000 R 09F80216 00 FD 34 12 01 01 FF FF", f));  // magnetic
+  TEST_ASSERT_TRUE(ydraw::decodePgn(f.pgn, f.data, f.len, d));
+  TEST_ASSERT_FLOAT_WITHIN(0.01f, 26.70f, val(d, Quantity::Cog));
 }
 
 static void test_decode_129026_not_available() {
@@ -433,18 +446,37 @@ static void test_decode_127250_heading_and_true_to_magnetic() {
   cfg.smoothingSec = 0;
   m.configure(cfg);
   m.ingest(d, n2kSourceId(0x11), "127250", 1000);
-  BoatModel::Reading r = m.get(Quantity::Hdg, 1000);
+  BoatModel::Reading r = m.bearing(Quantity::Hdg, BearingRef::Magnetic, 1000);
   TEST_ASSERT_TRUE(r.valid);
   TEST_ASSERT_FLOAT_WITHIN(0.02f, 190.0f, r.value);
+  r = m.bearing(Quantity::Hdg, BearingRef::True, 1000);
+  TEST_ASSERT_TRUE(r.valid);
+  TEST_ASSERT_FLOAT_WITHIN(0.02f, 200.0f, r.value);
 }
 
-static void test_true_bearing_without_variation_is_dropped() {
+static void test_bearing_reference_conversion() {
   BoatModel m;
+  ModelConfig cfg;
+  cfg.smoothingSec = 0;
+  m.configure(cfg);
+  // Without a variation only the received reference is known.
   m.ingest(Quantity::HdgTrue, 200.0f, 1, "HDT", 1000);
-  TEST_ASSERT_FALSE(m.get(Quantity::Hdg, 1000).valid);
+  TEST_ASSERT_TRUE(m.bearing(Quantity::Hdg, BearingRef::True, 1000).valid);
+  TEST_ASSERT_FALSE(m.bearing(Quantity::Hdg, BearingRef::Magnetic, 1000).valid);
+  // true = magnetic + variation (east positive)
   m.ingest(Quantity::Variation, -5.0f, 1, "RMC", 1100);
   m.ingest(Quantity::TwdTrue, 2.0f, 1, "MWD", 1200);
-  TEST_ASSERT_FLOAT_WITHIN(0.01f, 7.0f, m.get(Quantity::Twd, 1200).value);
+  TEST_ASSERT_FLOAT_WITHIN(0.01f, 7.0f, m.bearing(Quantity::Twd, BearingRef::Magnetic, 1200).value);
+  m.ingest(Quantity::Cog, 358.0f, 1, "VTG", 1200);
+  TEST_ASSERT_FLOAT_WITHIN(0.01f, 353.0f, m.bearing(Quantity::Cog, BearingRef::True, 1200).value);
+  // A value received in the asked-for reference wins over a conversion.
+  m.ingest(Quantity::CogTrue, 10.0f, 1, "RMC", 1200);
+  TEST_ASSERT_FLOAT_WITHIN(0.01f, 10.0f, m.bearing(Quantity::Cog, BearingRef::True, 1200).value);
+  TEST_ASSERT_EQUAL(Quantity::CogTrue, m.bearing(Quantity::CogTrue, BearingRef::True, 1200).q);
+  // Items read bearings in the chosen reference.
+  BoatModel::Reading r = readItem(m, Item::Hdg, BearingRef::Magnetic, 1200);
+  TEST_ASSERT_TRUE(r.valid);
+  TEST_ASSERT_FLOAT_WITHIN(0.01f, 205.0f, r.value);
 }
 
 static void test_decode_128267_depth_with_offset() {
@@ -457,8 +489,10 @@ static void test_decode_128267_depth_with_offset() {
 static void test_fast_packet_129284_navigation() {
   uint8_t payload[34];
   memset(payload, 0xFF, sizeof(payload));
-  const uint8_t head[] = {0x01, 0x98, 0x10, 0x07, 0x00, 0x00};
+  const uint8_t head[] = {0x01, 0x98, 0x10, 0x07, 0x00, 0x01};  // magnetic bearings
   memcpy(payload, head, sizeof(head));
+  payload[14] = 0x34;  // bearing position -> destination, 0x1234 * 1e-4 rad
+  payload[15] = 0x12;
   payload[32] = 0x96;
   payload[33] = 0x00;
 
@@ -480,6 +514,7 @@ static void test_fast_packet_129284_navigation() {
     TEST_ASSERT_EQUAL(n == 4, done);
   }
   TEST_ASSERT_FLOAT_WITHIN(0.01f, 4630.0f, val(d, Quantity::Dtw));
+  TEST_ASSERT_FLOAT_WITHIN(0.01f, 26.70f, val(d, Quantity::Btw));
   TEST_ASSERT_FLOAT_WITHIN(0.001f, 1.5f, val(d, Quantity::Vmc));
 
   // A missing frame discards the packet.
@@ -549,6 +584,10 @@ static void test_item_ids_and_quantities() {
   TEST_ASSERT_EQUAL(Quantity::Dpt, q);
   TEST_ASSERT_FALSE(itemQuantity(Item::Speed, q));
   TEST_ASSERT_EQUAL(Item::Tws, itemForQuantity(Quantity::Tws));
+  TEST_ASSERT_EQUAL(Item::Cog, itemForQuantity(Quantity::CogTrue));
+  TEST_ASSERT_TRUE(itemFromId("btw", it));
+  TEST_ASSERT_TRUE(itemQuantity(it, q));
+  TEST_ASSERT_EQUAL(Quantity::Btw, q);
   for (size_t i = 0; i < kItemCount; i++) TEST_ASSERT_EQUAL(static_cast<Item>(i), itemInfo(static_cast<Item>(i)).item);
 }
 
@@ -577,8 +616,54 @@ static void test_item_formatting() {
   TEST_ASSERT_EQUAL_STRING("123", b);
   formatItem(Item::Dpt, true, 3.21f, -1, b, sizeof(b));
   TEST_ASSERT_EQUAL_STRING(" 3.2", b);
-  TEST_ASSERT_FLOAT_WITHIN(0.01f, 32.81f, itemDisplayValue(Item::Dpt, 10.0f, SpeedUnit::Knots, DepthUnit::Feet));
-  TEST_ASSERT_EQUAL_STRING("FT", itemUnit(Item::Dpt, SpeedUnit::Knots, DepthUnit::Feet));
+  formatItem(Item::Dtw, true, 456.4f, -1, b, sizeof(b), true);
+  TEST_ASSERT_EQUAL_STRING("456", b);
+  formatItem(Item::Cog, true, 7.0f, -1, b, sizeof(b));
+  TEST_ASSERT_EQUAL_STRING("007", b);
+
+  DisplayUnits u;
+  u.depth = DepthUnit::Feet;
+  TEST_ASSERT_FLOAT_WITHIN(0.01f, 32.81f, itemDisplay(Item::Dpt, 10.0f, u).value);
+  TEST_ASSERT_EQUAL_STRING("FT", itemUnit(Item::Dpt, u));
+  TEST_ASSERT_EQUAL_STRING("MAG", itemUnit(Item::Btw, u));
+  u.bearing = BearingRef::True;
+  TEST_ASSERT_EQUAL_STRING("TRUE", itemUnit(Item::Hdg, u));
+}
+
+static void test_distance_units() {
+  DisplayUnits u;
+  DisplayValue d = itemDisplay(Item::Dtw, 500.0f, u);  // no short unit: always NM
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.27f, d.value);
+  TEST_ASSERT_EQUAL_STRING("NM", d.unit);
+  TEST_ASSERT_FALSE(d.shortDistance);
+
+  u.distance = DistanceUnit::Kilometers;
+  u.shortDistance = ShortDistanceUnit::Meters;
+  d = itemDisplay(Item::Dtw, 999.0f, u);
+  TEST_ASSERT_TRUE(d.shortDistance);
+  TEST_ASSERT_EQUAL_STRING("M", d.unit);
+  TEST_ASSERT_FLOAT_WITHIN(0.01f, 999.0f, d.value);
+  d = itemDisplay(Item::Dtw, 999.6f, u);  // would round to 1000 m
+  TEST_ASSERT_FALSE(d.shortDistance);
+  TEST_ASSERT_EQUAL_STRING("KM", d.unit);
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.9996f, d.value);
+
+  u.distance = DistanceUnit::Miles;
+  u.shortDistance = ShortDistanceUnit::Yards;
+  d = itemDisplay(Item::Dtw, 1609.344f, u);
+  TEST_ASSERT_EQUAL_STRING("MI", d.unit);
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, 1.0f, d.value);
+  d = itemDisplay(Item::Dtw, 9.144f, u);
+  TEST_ASSERT_EQUAL_STRING("YD", d.unit);
+  TEST_ASSERT_FLOAT_WITHIN(0.01f, 10.0f, d.value);
+
+  u.distance = DistanceUnit::NauticalMiles;
+  u.shortDistance = ShortDistanceUnit::Feet;
+  d = itemDisplay(Item::Dtw, 300.0f, u);  // 984 ft
+  TEST_ASSERT_EQUAL_STRING("FT", d.unit);
+  TEST_ASSERT_FLOAT_WITHIN(0.5f, 984.0f, d.value);
+  d = itemDisplay(Item::Dtw, 310.0f, u);  // 1017 ft
+  TEST_ASSERT_EQUAL_STRING("NM", d.unit);
 }
 
 int main(int, char**) {
@@ -594,7 +679,7 @@ int main(int, char**) {
   RUN_TEST(test_unrelated_sentence_ok_without_values);
   RUN_TEST(test_mwv_apparent_and_true);
   RUN_TEST(test_vwr_port_side_is_negative);
-  RUN_TEST(test_mwd_prefers_magnetic);
+  RUN_TEST(test_mwd_both_references);
   RUN_TEST(test_heading_sentences);
   RUN_TEST(test_depth_sentences);
   RUN_TEST(test_waypoint_sentences);
@@ -621,7 +706,7 @@ int main(int, char**) {
   RUN_TEST(test_decoder_reports_time_once);
   RUN_TEST(test_decode_130306_wind);
   RUN_TEST(test_decode_127250_heading_and_true_to_magnetic);
-  RUN_TEST(test_true_bearing_without_variation_is_dropped);
+  RUN_TEST(test_bearing_reference_conversion);
   RUN_TEST(test_decode_128267_depth_with_offset);
   RUN_TEST(test_fast_packet_129284_navigation);
   RUN_TEST(test_model_angles_average_across_zero);
@@ -629,5 +714,6 @@ int main(int, char**) {
   RUN_TEST(test_decoder_raw_fast_packet_lines);
   RUN_TEST(test_item_ids_and_quantities);
   RUN_TEST(test_item_formatting);
+  RUN_TEST(test_distance_units);
   return UNITY_END();
 }

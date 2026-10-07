@@ -43,15 +43,18 @@ It understands both data protocols Yacht Devices gateways offer:
 | TWA / TWS true wind | `MWV` (T), `VWT` | PGN 130306 (true, boat or water referenced) |
 | TWD true wind direction | `MWD` | PGN 130306 (true or magnetic, north referenced) |
 | HDG heading | `HDG`, `HDM`, `HDT`, `VHW` | PGN 127250 |
+| COG course over ground | `RMC`, `VTG` | PGN 129026 |
 | DTW distance to waypoint | `RMB`, `BWC` | PGN 129284 (fast packet) |
+| BTW bearing to waypoint | `RMB`, `BWC` | PGN 129284 (fast packet) |
 | VMG to wind | `VPW` | — (no standard PGN) |
 | VMC to waypoint | `RMB` (closing velocity) | PGN 129284 |
 | DPT depth | `DPT` (with offset), else `DBT` | PGN 128267 (with offset) |
 | Clock (night schedule) | `RMC`, `ZDA` | PGN 126992 |
 
-Headings and wind direction are shown **magnetic**. Values sent as true are
-converted with the magnetic variation from `RMC`/`HDG` or PGN 127250/127258;
-until a variation has been seen they are not shown. Values are shown only as
+Bearings (HDG, COG, BTW, TWD) are shown **magnetic** or **true**, as chosen on
+the Units tab. A value sent in the other reference is converted with the
+magnetic variation from `RMC`/`HDG` or PGN 127250/127258; until a variation has
+been seen it is not shown. Values are shown only as
 the instruments send them: true wind and VMG are not calculated on the
 display.
 
@@ -144,7 +147,7 @@ sends.
 | Live | Current speed, every instrument value, live LED preview, setup checklist, every data source seen on the bus |
 | Wi-Fi | Boat network (with scan); setup network name, password, always-on vs fallback, hostname |
 | Data | TCP/UDP, gateway address and port, NMEA 0183 / RAW / Auto, gateway discovery, connection stats, live data view |
-| Units | STW vs SOG for *Boat speed* (with fallback), speed units (kn, km/h, mph, m/s), depth units (m, ft), decimals, smoothing, stale timeout, per-device source selection |
+| Units | STW vs SOG for *Boat speed* (with fallback), speed units (kn, km/h, mph, m/s), depth units (m, ft), distance units (NM, km, mi) with optional m/yd/ft for distances under 1000 of those, magnetic or true bearings, decimals, smoothing, stale timeout, per-device source selection |
 | Display | Layout (1, 2 or 4 sections) and the value in each, brightness, colours, rotation, which labels to show, night mode (manual or scheduled), test pattern |
 | Panel | HUB75 driver chip, colour order, clock speed and phase, panel size and chaining; GPIO pins (Waveshare, Matrix Portal) or output connector (HD-WF4). Needs a reboot |
 | System | Firmware info, OTA update, settings export and import, reboot, factory reset |
@@ -153,7 +156,7 @@ sends.
 
 **Layout** (Display tab): 1, 2 or 4 sections, each showing one of *Boat
 speed* (STW or SOG per the Units tab), STW, SOG, AWA, AWS, TWA, TWS, TWD, HDG,
-DTW, VMG, VMC or DPT. The split follows the panel's shape after rotation:
+DTW, BTW, COG, VMG, VMC or DPT. The split follows the panel's shape after rotation:
 
 | Panel (after rotation) | 2 sections | 4 sections |
 |---|---|---|
@@ -204,7 +207,7 @@ The **BOOT** button on the Waveshare board, **S1** on the HD-WF4, or **UP** on t
 | "network not found" | Is the gateway in access point mode and in range? Its SSID is case-sensitive |
 | Reaches Wi-Fi, "no answer from 192.168.4.1:1456" | The server port is off, or 3 TCP clients are already connected. Use another server or UDP |
 | Data flows but "NO SPEED DATA" | Check the 0183 transmit filters, or switch to RAW; make sure the Units tab's source mode allows the speed that exists (STW vs SOG) |
-| A section shows dashes | The bus doesn't carry that value: the **Live** tab lists what arrives. Check the gateway's 0183 transmit filters, or use RAW. HDG/TWD sent only as true need a magnetic variation (`RMC`, `HDG`, PGN 127258) |
+| A section shows dashes | The bus doesn't carry that value: the **Live** tab lists what arrives. Check the gateway's 0183 transmit filters, or use RAW. A bearing sent only in the other reference (true vs magnetic) needs a magnetic variation (`RMC`, `HDG`, PGN 127258) |
 | VMG stays empty with RAW | NMEA 2000 has no standard VMG message; use NMEA 0183 with `VPW` from your instruments |
 | Phone keeps dropping the setup network | While the display can't find the boat Wi-Fi it scans for it, which moves its own network between channels. Set up the boat Wi-Fi first, or set the setup network to *fallback* |
 

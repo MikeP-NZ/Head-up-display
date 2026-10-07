@@ -35,7 +35,8 @@ DEFAULTS = {
     "wifi": {"ssid": "", "open": True},
     "portal": {"apMode": "always", "ssid": "", "defaultSsid": "HeadUp-1A2B", "open": False, "hostname": "headup"},
     "data": {"transport": "tcp", "protocol": "auto", "host": "", "port": 1456},
-    "speed": {"source": "prefer_stw", "unit": "kn", "decimals": -1, "smoothing": 1.0, "staleSec": 5, "stwFilter": 0, "sogFilter": 0, "depthUnit": "m"},
+    "speed": {"source": "prefer_stw", "unit": "kn", "decimals": -1, "smoothing": 1.0, "staleSec": 5, "stwFilter": 0, "sogFilter": 0, "depthUnit": "m",
+              "distanceUnit": "nm", "shortDistanceUnit": "off", "bearingRef": "mag"},
     "display": {
         "brightness": 160, "speedColor": "#ffffff", "accentColor": "#00a0ff", "showSource": True, "showUnit": True,
         "showStatus": True, "rotation": 0, "sections": 1, "items": ["speed", "aws", "awa", "dpt"],
@@ -131,10 +132,20 @@ class Device:
         awa, aws = b.apparent()
         unit = UNITS[c["unit"]][0]
         dunit = "FT" if c["depthUnit"] == "ft" else "M"
+        var = b.variation if c["bearingRef"] == "true" else 0.0
+        bref = "TRUE" if c["bearingRef"] == "true" else "MAG"
+        dtw_m = b.dtw_nm() * 1852
+        short = {"m": (1.0, "M"), "yd": (0.9144, "YD"), "ft": (0.3048, "FT")}.get(c["shortDistanceUnit"])
+        if short and dtw_m / short[0] < 999.5:
+            dtw = (round(dtw_m / short[0]), short[1])
+        else:
+            m, u = {"km": (1000.0, "KM"), "mi": (1609.344, "MI")}.get(c["distanceUnit"], (1852.0, "NM"))
+            dtw = (dtw_m / m, u)
         return {
             "stw": (b.stw_knots() * KNOT * f, unit), "sog": (b.sog_knots() * KNOT * f, unit),
             "awa": (awa, ""), "aws": (aws * KNOT * f, unit), "twa": (b.twa(), ""), "tws": (b.tws_knots() * KNOT * f, unit),
-            "twd": (b.twd(), "MAG"), "hdg": (b.heading(), "MAG"), "dtw": (b.dtw_nm(), "NM"),
+            "twd": ((b.twd() + var) % 360, bref), "hdg": ((b.heading() + var) % 360, bref), "dtw": dtw,
+            "cog": ((b.heading() + 4 + var) % 360, bref), "btw": ((212 + var) % 360, bref),
             "vmg": (b.vmg_knots() * KNOT * f, unit), "vmc": (b.vmc_knots() * KNOT * f, unit), "dpt": (b.depth() * depth_f, dunit),
         }
 
@@ -194,6 +205,8 @@ class Device:
         p = c["panel"]
         args = [
             "width=%d" % (p["width"] * p["chain"]), "height=%d" % p["height"], "depthunit=" + c["speed"]["depthUnit"],
+            "distunit=" + c["speed"]["distanceUnit"], "shortdistunit=" + c["speed"]["shortDistanceUnit"],
+            "bearingref=" + c["speed"]["bearingRef"],
             "color=" + d["speedColor"][1:], "accent=" + d["accentColor"][1:], "nightcolor=" + d["night"]["color"][1:],
             "showsource=%d" % d["showSource"], "showunit=%d" % d["showUnit"], "showstatus=%d" % d["showStatus"],
             "unit=" + c["speed"]["unit"], "decimals=%d" % c["speed"]["decimals"], "rotation=%d" % d["rotation"],

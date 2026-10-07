@@ -242,7 +242,7 @@ void Renderer::drawCell(const ItemView& item, int x, int y, int w, int h) {
 
   char side = item.valid ? itemSide(item.item, item.value) : 0;
   char sideText[2] = {side, 0};
-  const char* tag = side ? sideText : style_.showUnit ? itemUnit(item.item, style_.unit, style_.depthUnit) : "";
+  const char* tag = side ? sideText : style_.showUnit ? item.unit : "";
   if (*tag) {
     canvas_->setTextColor(side ? valueColor(item) : accentColor());
     canvas_->setCursor(x + w - textWidth(tag) - 1, y + 5);
@@ -250,7 +250,7 @@ void Renderer::drawCell(const ItemView& item, int x, int y, int w, int h) {
   }
 
   char text[12];
-  formatItem(item.item, item.valid, item.value, style_.decimals, text, sizeof(text));
+  formatItem(item.item, item.valid, item.value, style_.decimals, text, sizeof(text), item.shortDistance);
   drawNumber(text, x + 1, y + labelH, w - 2, h - labelH, valueColor(item));
 }
 
@@ -263,14 +263,14 @@ void Renderer::drawSingle(const DashView& dash, uint32_t nowMs) {
   int ch = canvas_->height();
 
   char text[12];
-  formatItem(v.item, v.valid, v.value, style_.decimals, text, sizeof(text));
+  formatItem(v.item, v.valid, v.value, style_.decimals, text, sizeof(text), v.shortDistance);
   uint16_t digitColor = valueColor(v);
   uint16_t wifiDot = dash.wifiUp ? okColor() : errColor();
   uint16_t dataDot = v.valid ? okColor() : dash.linkUp ? warnColor() : errColor();
 
   // Wind angles show the side where other items show their unit.
   char side = v.valid ? itemSide(v.item, v.value) : 0;
-  const char* unit = itemUnit(v.item, style_.unit, style_.depthUnit);
+  const char* unit = v.unit;
   if (itemInfo(v.item).format == ItemFormat::WindAngle) unit = side == 'P' ? "PORT" : side == 'S' ? "STBD" : "";
   // Wind angles keep the unit row while dead ahead so the digits do not jump.
   bool showUnit = style_.showUnit && (*unit || itemInfo(v.item).format == ItemFormat::WindAngle);

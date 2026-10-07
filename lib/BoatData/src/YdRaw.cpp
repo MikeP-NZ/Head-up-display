@@ -114,9 +114,15 @@ bool decodePgn(uint32_t pgn, const uint8_t* d, size_t len, Decoded& out) {
       return true;
     }
     case kPgnCogSogRapid: {
-      // SID, COG ref (2 bits), COG u16 1e-4 rad, SOG u16 0.01 m/s
+      // SID, COG ref (2 bits): 0 true, 1 magnetic, COG u16 1e-4 rad, SOG u16
+      // 0.01 m/s
       if (len < 6) return false;
+      uint8_t ref = d[1] & 0x03;
+      uint16_t cog = u16(&d[2]);
       uint16_t sog = u16(&d[4]);
+      if (validU16(cog) && ref <= 1) {
+        out.add(ref == 0 ? Quantity::CogTrue : Quantity::Cog, wrapBearing(cog * 1e-4f * kRad));
+      }
       if (validU16(sog)) out.add(Quantity::Sog, sog * 0.01f);
       return true;
     }
@@ -202,13 +208,19 @@ bool decodePgn(uint32_t pgn, const uint8_t* d, size_t len, Decoded& out) {
       return true;
     }
     case kPgnNavigationData: {
-      // SID, distance to waypoint u32 0.01 m, flags, ETA time u32, ETA date
-      // u16, bearing orig->dest u16, bearing pos->dest u16, origin id u32,
+      // SID, distance to waypoint u32 0.01 m, flags (bearing ref in the low 2
+      // bits: 0 true, 1 magnetic), ETA time u32, ETA date u16, bearing
+      // orig->dest u16, bearing pos->dest u16 (1e-4 rad), origin id u32,
       // destination id u32, lat i32, lon i32, closing velocity i16 0.01 m/s
       if (len < 34) return false;
       uint32_t dtw = u32(&d[1]);
+      uint8_t ref = d[5] & 0x03;
+      uint16_t btw = u16(&d[14]);
       int16_t vmc = i16(&d[32]);
       if (dtw < 0xFFFFFFFD) out.add(Quantity::Dtw, dtw * 0.01f);
+      if (validU16(btw) && ref <= 1) {
+        out.add(ref == 0 ? Quantity::BtwTrue : Quantity::Btw, wrapBearing(btw * 1e-4f * kRad));
+      }
       if (validI16(vmc)) out.add(Quantity::Vmc, vmc * 0.01f);
       return true;
     }

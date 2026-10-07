@@ -7,7 +7,8 @@
 // SI-style units:
 //   speeds (STW, SOG, AWS, TWS, VMG, VMC)  m/s; VMG/VMC may be negative
 //   wind angles (AWA, TWA)                 degrees, -180..180, + = starboard
-//   bearings (TWD, HDG)                    degrees magnetic, 0..360
+//   bearings (TWD, HDG, BTW, COG)          degrees, 0..360; magnetic, with a
+//                                          *True twin for true bearings
 //   distance (DTW), depth (DPT)            metres
 enum class Quantity : uint8_t {
   Stw,  // speed through water
@@ -22,12 +23,17 @@ enum class Quantity : uint8_t {
   Vmg,  // velocity made good to wind
   Vmc,  // velocity made good to waypoint (closing velocity)
   Dpt,  // water depth
-  Count,
-  // Decoder-only values. BoatModel turns the true bearings into magnetic
-  // ones with the most recent magnetic variation.
-  HdgTrue = Count,
+  Btw,  // bearing to waypoint (magnetic)
+  Cog,  // course over ground (magnetic)
+  // The same bearings referenced to true north. BoatModel converts between
+  // the two with the most recent magnetic variation (see BoatModel::bearing).
   TwdTrue,
-  Variation,  // degrees, east positive
+  HdgTrue,
+  BtwTrue,
+  CogTrue,
+  Count,
+  // Decoder-only value.
+  Variation = Count,  // degrees, east positive
 };
 
 constexpr size_t kQuantityCount = static_cast<size_t>(Quantity::Count);
@@ -37,8 +43,15 @@ inline size_t quantityIndex(Quantity q) { return static_cast<size_t>(q); }
 // "STW", "AWA", ... (also "HDG" for HdgTrue etc.)
 const char* quantityLabel(Quantity q);
 
-// AWA, TWA, TWD and HDG are angles and are averaged as vectors.
+// AWA, TWA and the bearings are angles and are averaged as vectors.
 bool isAngular(Quantity q);
+
+// Bearings (TWD, HDG, BTW, COG and their true twins).
+bool isBearing(Quantity q);
+bool isTrueBearing(Quantity q);
+// HdgTrue <-> Hdg etc. Other quantities are returned unchanged.
+Quantity trueTwin(Quantity magnetic);
+Quantity magneticTwin(Quantity trueBearing);
 
 struct Sample {
   Quantity q;

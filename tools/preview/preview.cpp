@@ -42,9 +42,16 @@ int main(int argc, char** argv) {
   style.showSource = num("showsource", 1) != 0;
   style.showUnit = num("showunit", 1) != 0;
   style.showStatus = num("showstatus", 1) != 0;
-  std::string unit = str("unit", "kn");
-  style.depthUnit = str("depthunit", "m") == "ft" ? DepthUnit::Feet : DepthUnit::Meters;
-  style.unit = unit == "kmh" ? SpeedUnit::Kmh : unit == "mph" ? SpeedUnit::Mph : unit == "mps" ? SpeedUnit::Mps : SpeedUnit::Knots;
+  std::string unit = str("unit", "kn"), dist = str("distunit", "nm"), shortDist = str("shortdistunit", "off");
+  DisplayUnits units;
+  units.depth = str("depthunit", "m") == "ft" ? DepthUnit::Feet : DepthUnit::Meters;
+  units.speed = unit == "kmh" ? SpeedUnit::Kmh : unit == "mph" ? SpeedUnit::Mph : unit == "mps" ? SpeedUnit::Mps : SpeedUnit::Knots;
+  units.distance = dist == "km" ? DistanceUnit::Kilometers : dist == "mi" ? DistanceUnit::Miles : DistanceUnit::NauticalMiles;
+  units.shortDistance = shortDist == "m"    ? ShortDistanceUnit::Meters
+                        : shortDist == "yd" ? ShortDistanceUnit::Yards
+                        : shortDist == "ft" ? ShortDistanceUnit::Feet
+                                            : ShortDistanceUnit::Off;
+  units.bearing = str("bearingref", "mag") == "true" ? BearingRef::True : BearingRef::Magnetic;
   style.decimals = static_cast<int8_t>(num("decimals", -1));
   style.rotation = static_cast<uint8_t>(num("rotation", 0));
   r.setStyle(style);
@@ -77,6 +84,7 @@ int main(int argc, char** argv) {
       v.items[0].valid = num("valid", 1) != 0;
       v.items[0].value = static_cast<float>(num("value", 0));
       v.items[0].kind = str("kind", "stw") == "sog" ? Quantity::Sog : Quantity::Stw;
+      v.items[0].unit = itemUnit(Item::Speed, units);
     } else {
       v.sections = static_cast<uint8_t>(num("sections", 4));
       std::vector<std::string> items = list("items"), values = list("values"), valid = list("valid");
@@ -86,6 +94,13 @@ int main(int argc, char** argv) {
         iv.value = i < values.size() ? static_cast<float>(atof(values[i].c_str())) : 0.0f;
         iv.valid = i < valid.size() ? valid[i] != "0" : i < values.size();
         iv.kind = str("kind", "stw") == "sog" ? Quantity::Sog : Quantity::Stw;
+        iv.unit = itemUnit(iv.item, units);
+        // Values are given in display units: a distance under 1000 is short.
+        if (itemInfo(iv.item).format == ItemFormat::Distance && units.shortDistance != ShortDistanceUnit::Off &&
+            iv.value < 999.5f) {
+          iv.unit = itemDisplay(iv.item, 0, units).unit;
+          iv.shortDistance = true;
+        }
       }
     }
     r.drawDash(v, now);

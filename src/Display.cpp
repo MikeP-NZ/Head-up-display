@@ -79,8 +79,6 @@ void Display::applySettings(const Settings& s) {
   style.showSource = s.showSource;
   style.showUnit = s.showUnit;
   style.showStatus = s.showStatus;
-  style.unit = s.unit;
-  style.depthUnit = s.depthUnit;
   style.decimals = s.decimals;
   style.rotation = s.rotation;
   renderer_->setStyle(style);

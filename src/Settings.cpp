@@ -25,6 +25,13 @@ constexpr EnumName<SourceMode> kSourceModes[] = {{SourceMode::Stw, "stw"},
 constexpr EnumName<SpeedUnit> kUnits[] = {
     {SpeedUnit::Knots, "kn"}, {SpeedUnit::Kmh, "kmh"}, {SpeedUnit::Mph, "mph"}, {SpeedUnit::Mps, "mps"}};
 constexpr EnumName<DepthUnit> kDepthUnits[] = {{DepthUnit::Meters, "m"}, {DepthUnit::Feet, "ft"}};
+constexpr EnumName<DistanceUnit> kDistanceUnits[] = {
+    {DistanceUnit::NauticalMiles, "nm"}, {DistanceUnit::Kilometers, "km"}, {DistanceUnit::Miles, "mi"}};
+constexpr EnumName<ShortDistanceUnit> kShortDistanceUnits[] = {{ShortDistanceUnit::Off, "off"},
+                                                               {ShortDistanceUnit::Meters, "m"},
+                                                               {ShortDistanceUnit::Yards, "yd"},
+                                                               {ShortDistanceUnit::Feet, "ft"}};
+constexpr EnumName<BearingRef> kBearingRefs[] = {{BearingRef::Magnetic, "mag"}, {BearingRef::True, "true"}};
 constexpr EnumName<NightMode> kNightModes[] = {
     {NightMode::Off, "off"}, {NightMode::On, "on"}, {NightMode::Schedule, "schedule"}};
 constexpr EnumName<PanelDriver> kDrivers[] = {{PanelDriver::ShiftReg, "SHIFTREG"}, {PanelDriver::FM6124, "FM6124"},
@@ -160,6 +167,16 @@ ModelConfig Settings::modelConfig() const {
   return c;
 }
 
+DisplayUnits Settings::displayUnits() const {
+  DisplayUnits u;
+  u.speed = unit;
+  u.depth = depthUnit;
+  u.distance = distanceUnit;
+  u.shortDistance = shortDistanceUnit;
+  u.bearing = bearingRef;
+  return u;
+}
+
 String deviceId() {
   // Read from eFuse: WiFi.macAddress() returns nothing before Wi-Fi starts.
   uint8_t mac[6] = {0};
@@ -203,6 +220,9 @@ void settingsToJson(const Settings& s, JsonObject root, bool includeSecrets) {
   speed["stwFilter"] = s.stwFilter;
   speed["sogFilter"] = s.sogFilter;
   speed["depthUnit"] = nameOf(kDepthUnits, s.depthUnit);
+  speed["distanceUnit"] = nameOf(kDistanceUnits, s.distanceUnit);
+  speed["shortDistanceUnit"] = nameOf(kShortDistanceUnits, s.shortDistanceUnit);
+  speed["bearingRef"] = nameOf(kBearingRefs, s.bearingRef);
 
   JsonObject display = root["display"].to<JsonObject>();
   display["brightness"] = s.brightness;
@@ -279,6 +299,9 @@ bool settingsMergeJson(Settings& s, JsonObjectConst root, SettingsChanges& chang
     m.num(o, "stwFilter", n.stwFilter, 0, 0x2FFFF);
     m.num(o, "sogFilter", n.sogFilter, 0, 0x2FFFF);
     m.choice(o, "depthUnit", kDepthUnits, n.depthUnit);
+    m.choice(o, "distanceUnit", kDistanceUnits, n.distanceUnit);
+    m.choice(o, "shortDistanceUnit", kShortDistanceUnits, n.shortDistanceUnit);
+    m.choice(o, "bearingRef", kBearingRefs, n.bearingRef);
   }
   if (JsonObjectConst o = root["display"]) {
     m.num(o, "brightness", n.brightness, 0, 255);

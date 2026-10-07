@@ -99,19 +99,17 @@ String connectionMessage(bool& isError) {
 
 // Fills one section from the model (call with the link lock held).
 void fillItem(ItemView& v, const BoatModel& model, uint32_t now) {
-  const Settings& s = app.settings;
-  BoatModel::Reading r;
-  Quantity q;
-  if (v.item == Item::Speed) {
-    r = model.speed(now);
-    v.kind = r.q;
-  } else if (itemQuantity(v.item, q)) {
-    r = model.get(q, now);
-  } else {
-    return;
-  }
+  DisplayUnits units = app.settings.displayUnits();
+  v.unit = itemUnit(v.item, units);
+  if (v.item == Item::None) return;
+  BoatModel::Reading r = readItem(model, v.item, units.bearing, now);
+  if (v.item == Item::Speed) v.kind = r.q;
   v.valid = r.valid;
-  v.value = itemDisplayValue(v.item, r.value, s.unit, s.depthUnit);
+  if (!r.valid) return;
+  DisplayValue d = itemDisplay(v.item, r.value, units);
+  v.value = d.value;
+  v.unit = d.unit;
+  v.shortDistance = d.shortDistance;
 }
 
 // Slow blink while showing values, fast blink otherwise. Blinking reads the

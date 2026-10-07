@@ -46,6 +46,9 @@ struct Settings {
   uint32_t stwFilter = 0;
   uint32_t sogFilter = 0;
   DepthUnit depthUnit = DepthUnit::Meters;
+  DistanceUnit distanceUnit = DistanceUnit::NauticalMiles;
+  ShortDistanceUnit shortDistanceUnit = ShortDistanceUnit::Off;
+  BearingRef bearingRef = BearingRef::Magnetic;
 
   // Display
   uint8_t brightness = 160;
@@ -80,6 +83,7 @@ struct Settings {
   String hubPort = board().defaultPort ? board().defaultPort : "";  // boards with several HUB75 outputs
 
   ModelConfig modelConfig() const;
+  DisplayUnits displayUnits() const;
   String effectiveApSsid() const;
 };
 

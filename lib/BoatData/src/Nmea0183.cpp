@@ -143,8 +143,8 @@ ParseResult parse(const char* line, Sentence& out) {
     // $--VHW,hdgT,T,hdgM,M,kn,N,kmh,K
     if (num(5, v)) d.add(Quantity::Stw, v * kKnot);
     else if (num(7, v)) d.add(Quantity::Stw, v / 3.6f);
-    if (num(3, v)) d.add(Quantity::Hdg, v);
-    else if (num(1, v)) d.add(Quantity::HdgTrue, v);
+    if (num(3, v)) d.add(Quantity::Hdg, wrapBearing(v));
+    if (num(1, v)) d.add(Quantity::HdgTrue, wrapBearing(v));
   } else if (is("VBW")) {
     // $--VBW,longW,transW,A,longG,transG,A,...
     if (field(3)[0] == 'A' && num(1, v)) d.add(Quantity::Stw, v * kKnot);
@@ -153,6 +153,7 @@ ParseResult parse(const char* line, Sentence& out) {
     // $--RMC,hhmmss,A,lat,N,lon,E,sog,cog,ddmmyy,var,E[,mode[,nav]]
     bool valid = field(2)[0] == 'A' && isValidMode(field(12));
     if (valid && num(7, v)) d.add(Quantity::Sog, v * kKnot);
+    if (valid && num(8, v)) d.add(Quantity::CogTrue, wrapBearing(v));
     if (valid && num(10, v) && (field(11)[0] == 'E' || field(11)[0] == 'W')) {
       d.add(Quantity::Variation, field(11)[0] == 'W' ? -v : v);
     }
@@ -173,6 +174,8 @@ ParseResult parse(const char* line, Sentence& out) {
     if (isValidMode(field(9))) {
       if (num(5, v)) d.add(Quantity::Sog, v * kKnot);
       else if (num(7, v)) d.add(Quantity::Sog, v / 3.6f);
+      if (num(1, v)) d.add(Quantity::CogTrue, wrapBearing(v));
+      if (num(3, v)) d.add(Quantity::Cog, wrapBearing(v));
     }
   } else if (is("ZDA")) {
     // $--ZDA,hhmmss,dd,mm,yyyy,zh,zm
@@ -208,7 +211,7 @@ ParseResult parse(const char* line, Sentence& out) {
   } else if (is("MWD")) {
     // $--MWD,dirT,T,dirM,M,kn,N,m/s,M   (speed is ground-referenced; not used)
     if (num(3, v)) d.add(Quantity::Twd, wrapBearing(v));
-    else if (num(1, v)) d.add(Quantity::TwdTrue, wrapBearing(v));
+    if (num(1, v)) d.add(Quantity::TwdTrue, wrapBearing(v));
   } else if (is("HDG")) {
     // $--HDG,sensor,dev,E|W,var,E|W   magnetic = sensor + deviation
     if (num(1, v)) {
@@ -241,11 +244,16 @@ ParseResult parse(const char* line, Sentence& out) {
     // $--RMB,A,xte,L,orig,dest,lat,N,lon,E,range,bearing,closing,arrival[,mode]
     if (field(1)[0] == 'A' && isValidMode(field(14))) {
       if (num(10, v)) d.add(Quantity::Dtw, v * kNauticalMile);
+      if (num(11, v)) d.add(Quantity::BtwTrue, wrapBearing(v));
       if (num(12, v)) d.add(Quantity::Vmc, v * kKnot);
     }
   } else if (is("BWC")) {
     // $--BWC,utc,lat,N,lon,E,brgT,T,brgM,M,dist,N,id[,mode]
-    if (isValidMode(field(13)) && num(10, v)) d.add(Quantity::Dtw, v * kNauticalMile);
+    if (isValidMode(field(13))) {
+      if (num(10, v)) d.add(Quantity::Dtw, v * kNauticalMile);
+      if (num(6, v)) d.add(Quantity::BtwTrue, wrapBearing(v));
+      if (num(8, v)) d.add(Quantity::Btw, wrapBearing(v));
+    }
   } else if (is("VPW")) {
     // $--VPW,kn,N,m/s,M   speed parallel to the true wind
     if (num(1, v)) d.add(Quantity::Vmg, v * kKnot);

@@ -161,11 +161,12 @@ void readingJson(JsonObject o, const BoatModel::Reading& r, SpeedUnit unit, int 
   }
 }
 
-// Display-unit value of a quantity, rounded for the portal.
-float displayValue(Quantity q, float value, const Settings& s) {
-  Item item = itemForQuantity(q);
-  float v = itemDisplayValue(item, value, s.unit, s.depthUnit);
-  return roundTo(v, itemInfo(item).format == ItemFormat::Distance ? 2 : 1);
+// A value in display units, rounded for the portal.
+void valueJson(JsonObject o, Item item, float value, const DisplayUnits& units) {
+  DisplayValue d = itemDisplay(item, value, units);
+  bool longDistance = itemInfo(item).format == ItemFormat::Distance && !d.shortDistance;
+  o["value"] = roundTo(d.value, longDistance ? 2 : d.shortDistance ? 0 : 1);
+  o["unit"] = d.unit;
 }
 
 void handleStatus() {
@@ -198,15 +199,17 @@ void handleStatus() {
   readingJson(speed["sog"].to<JsonObject>(), model.get(Quantity::Sog, now), s.unit, decimals);
 
   // Every value, in display units (wind angles: negative = port).
+  DisplayUnits units = s.displayUnits();
   JsonObject values = doc["values"].to<JsonObject>();
-  for (size_t i = 0; i < kQuantityCount; i++) {
-    Quantity q = static_cast<Quantity>(i);
-    Item item = itemForQuantity(q);
-    BoatModel::Reading r = model.get(q, now);
+  for (size_t i = 0; i < kItemCount; i++) {
+    Item item = static_cast<Item>(i);
+    Quantity q;
+    if (!itemQuantity(item, q)) continue;
+    BoatModel::Reading r = model.bearing(q, units.bearing, now);
     JsonObject o = values[itemInfo(item).id].to<JsonObject>();
     o["valid"] = r.valid;
-    o["unit"] = itemUnit(item, s.unit, s.depthUnit);
-    if (r.valid) o["value"] = displayValue(q, r.value, s);
+    o["unit"] = itemUnit(item, units);
+    if (r.valid) valueJson(o, item, r.value, units);
     if (r.ageMs || r.valid) o["age"] = r.ageMs;
   }
 
@@ -220,8 +223,9 @@ void handleStatus() {
     o["label"] = label;
     o["kind"] = quantityLabel(src.q);
     o["via"] = src.via;
-    o["value"] = displayValue(src.q, src.lastValue, s);
-    o["unit"] = itemUnit(itemForQuantity(src.q), s.unit, s.depthUnit);
+    // Bearings as they were received; everything else in display units.
+    valueJson(o, itemForQuantity(src.q), src.lastValue, units);
+    if (isBearing(src.q)) o["unit"] = isTrueBearing(src.q) ? "TRUE" : "MAG";
     o["age"] = max<int32_t>(0, static_cast<int32_t>(now - src.lastMs));
     o["count"] = src.count;
   }

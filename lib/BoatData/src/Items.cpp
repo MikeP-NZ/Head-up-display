@@ -16,12 +16,14 @@ const ItemInfo kItems[] = {
     {Item::Aws, "aws", "AWS", "Apparent wind speed", ItemFormat::Speed},
     {Item::Twa, "twa", "TWA", "True wind angle", ItemFormat::WindAngle},
     {Item::Tws, "tws", "TWS", "True wind speed", ItemFormat::Speed},
-    {Item::Twd, "twd", "TWD", "True wind direction (magnetic)", ItemFormat::Bearing},
-    {Item::Hdg, "hdg", "HDG", "Heading (magnetic)", ItemFormat::Bearing},
+    {Item::Twd, "twd", "TWD", "True wind direction", ItemFormat::Bearing},
+    {Item::Hdg, "hdg", "HDG", "Heading", ItemFormat::Bearing},
     {Item::Dtw, "dtw", "DTW", "Distance to waypoint", ItemFormat::Distance},
     {Item::Vmg, "vmg", "VMG", "Velocity made good to wind", ItemFormat::Speed},
     {Item::Vmc, "vmc", "VMC", "Velocity made good to waypoint", ItemFormat::Speed},
     {Item::Dpt, "dpt", "DPT", "Depth", ItemFormat::Depth},
+    {Item::Btw, "btw", "BTW", "Bearing to waypoint", ItemFormat::Bearing},
+    {Item::Cog, "cog", "COG", "Course over ground", ItemFormat::Bearing},
 };
 static_assert(sizeof(kItems) / sizeof(kItems[0]) == kItemCount, "item table out of sync");
 
@@ -34,7 +36,45 @@ const QuantityItem kQuantityItems[] = {
     {Quantity::Stw, Item::Stw}, {Quantity::Sog, Item::Sog}, {Quantity::Awa, Item::Awa}, {Quantity::Aws, Item::Aws},
     {Quantity::Twa, Item::Twa}, {Quantity::Tws, Item::Tws}, {Quantity::Twd, Item::Twd}, {Quantity::Hdg, Item::Hdg},
     {Quantity::Dtw, Item::Dtw}, {Quantity::Vmg, Item::Vmg}, {Quantity::Vmc, Item::Vmc}, {Quantity::Dpt, Item::Dpt},
+    {Quantity::Btw, Item::Btw}, {Quantity::Cog, Item::Cog},
 };
+
+constexpr float kNauticalMile = 1852.0f;  // m
+constexpr float kMile = 1609.344f;        // m
+constexpr float kYard = 0.9144f;          // m
+constexpr float kFoot = 0.3048f;          // m
+
+float metresPer(DistanceUnit u) {
+  switch (u) {
+    case DistanceUnit::Kilometers: return 1000.0f;
+    case DistanceUnit::Miles: return kMile;
+    default: return kNauticalMile;
+  }
+}
+
+const char* distanceLabel(DistanceUnit u) {
+  switch (u) {
+    case DistanceUnit::Kilometers: return "KM";
+    case DistanceUnit::Miles: return "MI";
+    default: return "NM";
+  }
+}
+
+float metresPer(ShortDistanceUnit u) {
+  switch (u) {
+    case ShortDistanceUnit::Yards: return kYard;
+    case ShortDistanceUnit::Feet: return kFoot;
+    default: return 1.0f;
+  }
+}
+
+const char* shortDistanceLabel(ShortDistanceUnit u) {
+  switch (u) {
+    case ShortDistanceUnit::Yards: return "YD";
+    case ShortDistanceUnit::Feet: return "FT";
+    default: return "M";
+  }
+}
 
 // Right-aligns `text` so it has at least `slots` digits before the '.'.
 void padInteger(char* text, size_t len, int slots) {
@@ -86,27 +126,55 @@ bool itemQuantity(Item item, Quantity& q) {
 }
 
 Item itemForQuantity(Quantity q) {
+  q = magneticTwin(q);
   for (const QuantityItem& m : kQuantityItems) {
     if (m.q == q) return m.item;
   }
   return Item::None;
 }
 
-float itemDisplayValue(Item item, float value, SpeedUnit speedUnit, DepthUnit depthUnit) {
-  switch (itemInfo(item).format) {
-    case ItemFormat::Speed: return convertSpeed(value, speedUnit);
-    case ItemFormat::Distance: return value / 1852.0f;
-    case ItemFormat::Depth: return depthUnit == DepthUnit::Feet ? value / 0.3048f : value;
-    default: return value;
-  }
+BoatModel::Reading readItem(const BoatModel& model, Item item, BearingRef ref, uint32_t nowMs) {
+  if (item == Item::Speed) return model.speed(nowMs);
+  Quantity q;
+  if (!itemQuantity(item, q)) return BoatModel::Reading{};
+  return model.bearing(q, ref, nowMs);
 }
 
-const char* itemUnit(Item item, SpeedUnit speedUnit, DepthUnit depthUnit) {
+DisplayValue itemDisplay(Item item, float value, const DisplayUnits& units) {
+  DisplayValue d;
+  d.value = value;
+  d.unit = itemUnit(item, units);
   switch (itemInfo(item).format) {
-    case ItemFormat::Speed: return unitLabel(speedUnit);
-    case ItemFormat::Bearing: return "MAG";
-    case ItemFormat::Distance: return "NM";
-    case ItemFormat::Depth: return depthUnit == DepthUnit::Feet ? "FT" : "M";
+    case ItemFormat::Speed:
+      d.value = convertSpeed(value, units.speed);
+      break;
+    case ItemFormat::Distance: {
+      // Below 999.5 so a short distance never rounds to "1000".
+      float shortValue = value / metresPer(units.shortDistance);
+      if (units.shortDistance != ShortDistanceUnit::Off && shortValue < 999.5f) {
+        d.value = shortValue;
+        d.unit = shortDistanceLabel(units.shortDistance);
+        d.shortDistance = true;
+      } else {
+        d.value = value / metresPer(units.distance);
+      }
+      break;
+    }
+    case ItemFormat::Depth:
+      if (units.depth == DepthUnit::Feet) d.value = value / kFoot;
+      break;
+    default:
+      break;
+  }
+  return d;
+}
+
+const char* itemUnit(Item item, const DisplayUnits& units) {
+  switch (itemInfo(item).format) {
+    case ItemFormat::Speed: return unitLabel(units.speed);
+    case ItemFormat::Bearing: return units.bearing == BearingRef::True ? "TRUE" : "MAG";
+    case ItemFormat::Distance: return distanceLabel(units.distance);
+    case ItemFormat::Depth: return units.depth == DepthUnit::Feet ? "FT" : "M";
     default: return "";
   }
 }
@@ -118,7 +186,7 @@ char itemSide(Item item, float v) {
   return v < 0 ? 'P' : 'S';
 }
 
-void formatItem(Item item, bool valid, float v, int8_t decimals, char* buf, size_t len) {
+void formatItem(Item item, bool valid, float v, int8_t decimals, char* buf, size_t len, bool shortDistance) {
   if (len == 0) return;
   buf[0] = 0;
   switch (itemInfo(item).format) {
@@ -149,6 +217,10 @@ void formatItem(Item item, bool valid, float v, int8_t decimals, char* buf, size
     }
     case ItemFormat::Distance: {
       if (!valid) return dashes(buf, len, 2, 1);
+      if (shortDistance) {
+        snprintf(buf, len, "%d", static_cast<int>(lroundf(v)));
+        return;
+      }
       int d = v < 9.995f ? 2 : v < 99.95f ? 1 : 0;
       if (v > 9999) v = 9999;
       snprintf(buf, len, "%.*f", d, v);

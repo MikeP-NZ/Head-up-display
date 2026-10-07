@@ -14,6 +14,9 @@ enum class SourceMode : uint8_t {
 
 enum class SpeedUnit : uint8_t { Knots = 0, Kmh = 1, Mph = 2, Mps = 3 };
 
+// Which north bearings are shown against.
+enum class BearingRef : uint8_t { Magnetic = 0, True = 1 };
+
 float convertSpeed(float mps, SpeedUnit unit);
 const char* unitLabel(SpeedUnit unit);
 
@@ -65,6 +68,10 @@ class BoatModel {
   Reading get(Quantity q, uint32_t nowMs) const;
   // STW or SOG, picked by the source mode.
   Reading speed(uint32_t nowMs) const;
+  // A bearing (either twin of it) in the requested reference: the value
+  // received in that reference while it is current, otherwise the other one
+  // converted with the magnetic variation. Other quantities are as get().
+  Reading bearing(Quantity q, BearingRef ref, uint32_t nowMs) const;
 
   bool variation(float& deg, uint32_t nowMs) const;
 

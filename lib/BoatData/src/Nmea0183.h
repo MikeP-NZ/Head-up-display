@@ -10,8 +10,8 @@
 //
 //   VHW  speed through water, heading        (PGN 128259, 127250)
 //   VBW  dual ground/water speed             (PGN 130578)
-//   RMC  speed over ground, variation, time  (PGN 129026, 127258, 129029)
-//   VTG  speed over ground                   (PGN 129026)
+//   RMC  SOG, COG, variation, time           (PGN 129026, 127258, 129029)
+//   VTG  speed and course over ground        (PGN 129026)
 //   ZDA  date/time                           (PGN 126992, 129029)
 //   MWV  apparent (R) or true (T) wind       (PGN 130306)
 //   VWR  apparent wind, VWT true wind        (older instruments)
@@ -19,8 +19,8 @@
 //   HDG  heading + deviation + variation     (PGN 127250)
 //   HDM  heading magnetic, HDT heading true  (PGN 127250)
 //   DPT  depth + offset, DBT depth           (PGN 128267)
-//   RMB  distance to waypoint, closing speed (PGN 129284)
-//   BWC  distance to waypoint                (PGN 129284)
+//   RMB  distance/bearing to waypoint, VMC   (PGN 129284)
+//   BWC  distance/bearing to waypoint        (PGN 129284)
 //   VPW  speed parallel to wind (VMG)
 namespace nmea0183 {
 
