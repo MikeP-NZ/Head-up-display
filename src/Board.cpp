@@ -39,6 +39,26 @@ constexpr BoardInfo kBoard = {
     "X1",
 };
 
+#elif defined(BOARD_ADAFRUIT_MATRIXPORTAL_S3)
+
+// Adafruit Matrix Portal S3 (product 5778): ESP32-S3, 8 MB flash, 2 MB quad
+// PSRAM, one HUB75 socket. Pins from Adafruit's Protomatter examples. 64x64
+// panels need the board's E jumper soldered to pin 8.
+constexpr BoardInfo kBoard = {
+    "adafruit-matrixportal-s3",
+    "Adafruit Matrix Portal S3",
+    {42, 41, 40, 38, 39, 37, 45, 36, 48, 35, 21, 47, 14, 2},
+    PanelDriver::ShiftReg,
+    true,
+    6,  // UP button
+    "UP",
+    13,  // red LED
+    false,
+    nullptr,
+    0,
+    nullptr,
+};
+
 #else  // BOARD_WAVESHARE_S3_MATRIX (default)
 
 // Waveshare ESP32-S3-RGB-Matrix (ESP32-S3-WROOM-2-N32R16V), pins from
@@ -66,6 +86,8 @@ constexpr BoardInfo kBoard = {
 __attribute__((used)) const char kFirmwareTag[] =
 #if defined(BOARD_HUIDU_HD_WF4)
     TAG_PREFIX "huidu-hd-wf4";
+#elif defined(BOARD_ADAFRUIT_MATRIXPORTAL_S3)
+    TAG_PREFIX "adafruit-matrixportal-s3";
 #else
     TAG_PREFIX "waveshare-s3-matrix";
 #endif

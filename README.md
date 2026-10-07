@@ -8,12 +8,13 @@ Everything is set up from a web portal on your phone. No app or cloud is involve
 
 ![Panel screens](docs/panel/contact_sheet.png)
 
-**Hardware.** Either controller board:
+**Hardware.** One of these controller boards:
 
 | Board | Build environment | Notes |
 |---|---|---|
 | Waveshare **ESP32-S3-RGB-Matrix** | `waveshare_s3_matrix` (default) | 32 MB octal flash, 16 MB PSRAM, one HUB75 output |
 | Huidu **HD-WF4** (v7.x, ESP32-S3) | `huidu_hd_wf4` | 8 MB flash, no PSRAM, four HUB75 outputs in two pairs. See the [HD-WF4 flashing guide](docs/flashing-hd-wf4.md) |
+| Adafruit **Matrix Portal S3** (5778) | `matrixportal_s3` | 8 MB flash, 2 MB PSRAM, one HUB75 socket. For 64×64 panels solder the E jumper to pin 8 |
 
 Plus:
 
@@ -21,7 +22,7 @@ Plus:
 - A 5 V supply sized for the panel. A 64×64 panel at full white draws several amps, so USB power alone is only good for a dim bench test.
 
 Each board has its own firmware image, because their flash layouts differ.
-Over-the-air updates refuse an image built for the other board.
+Over-the-air updates refuse an image built for a different board.
 
 ## How it works
 
@@ -68,16 +69,20 @@ reachable at `http://headup.local` or the display's IP address.
 flashes through its USB-A socket, and the guide covers backing up Huidu's
 firmware first.
 
-**Waveshare ESP32-S3-RGB-Matrix:**
+**Waveshare ESP32-S3-RGB-Matrix** or **Adafruit Matrix Portal S3:**
 
 1. Install [PlatformIO](https://platformio.org/install) (the VS Code extension, or `brew install platformio`).
 2. Connect the board's USB-C port and run:
 
    ```bash
-   pio run -e waveshare_s3_matrix -t upload
+   pio run -e waveshare_s3_matrix -t upload   # Waveshare
+   pio run -e matrixportal_s3 -t upload       # Matrix Portal S3
    ```
 
-   If the upload can't connect, hold **BOOT**, tap **RST**, release **BOOT**, and try again.
+   If the upload can't connect, hold **BOOT**, tap **RST** (**RESET** on the
+   Matrix Portal), release **BOOT**, and try again. The Matrix Portal's
+   CircuitPython and UF2 bootloader are overwritten; Adafruit's site has the
+   factory reset image if you want them back.
 3. Optional serial log:
 
    ```bash
@@ -141,7 +146,7 @@ sends.
 | Data | TCP/UDP, gateway address and port, NMEA 0183 / RAW / Auto, gateway discovery, connection stats, live data view |
 | Units | STW vs SOG for *Boat speed* (with fallback), speed units (kn, km/h, mph, m/s), depth units (m, ft), decimals, smoothing, stale timeout, per-device source selection |
 | Display | Layout (1, 2 or 4 sections) and the value in each, brightness, colours, rotation, which labels to show, night mode (manual or scheduled), test pattern |
-| Panel | HUB75 driver chip, colour order, clock speed and phase, panel size and chaining; GPIO pins (Waveshare) or output connector (HD-WF4). Needs a reboot |
+| Panel | HUB75 driver chip, colour order, clock speed and phase, panel size and chaining; GPIO pins (Waveshare, Matrix Portal) or output connector (HD-WF4). Needs a reboot |
 | System | Firmware info, OTA update, settings export and import, reboot, factory reset |
 
 ## The panel
@@ -180,7 +185,7 @@ digits can use the full height.
 
 ## Button
 
-The **BOOT** button on the Waveshare board, or **S1** on the HD-WF4:
+The **BOOT** button on the Waveshare board, **S1** on the HD-WF4, or **UP** on the Matrix Portal S3:
 
 | Press | Action |
 |---|---|
@@ -206,12 +211,13 @@ The **BOOT** button on the Waveshare board, or **S1** on the HD-WF4:
 ## Development
 
 ```bash
-pio run -e waveshare_s3_matrix -e huidu_hd_wf4   # build both boards
+pio run -e waveshare_s3_matrix -e huidu_hd_wf4 -e matrixportal_s3   # build all boards
 pio test -e native                       # parser / model / item unit tests on the host
 tools/preview/build.sh                   # host build of the panel renderer
 python3 tools/preview/render_png.py      # regenerate docs/panel/*.png
 python3 tools/mock_device.py --fresh     # portal against a fake device: http://127.0.0.1:8765
 python3 tools/mock_device.py --board wf4 # ... pretending to be an HD-WF4
+python3 tools/mock_device.py --board matrixportal # ... or a Matrix Portal S3
 python3 tools/yd_simulator.py            # fake YD gateway on TCP 1456 (NMEA 0183): speed, wind, heading, depth, waypoint
 python3 tools/yd_simulator.py --protocol raw --transport udp --port 1457
 ```
@@ -243,4 +249,6 @@ tools/            simulator, mock device, preview renderer, decoder CLI
 
 HUB75 pin map for the Waveshare board, taken from Waveshare's examples:
 R1 4, G1 5, B1 6, R2 7, G2 15, B2 16, A 18, B 8, C 3, D 42, E 9, LAT 40, OE 2, CLK 41.
+Matrix Portal S3, from Adafruit's Protomatter examples:
+R1 42, G1 41, B1 40, R2 38, G2 39, B2 37, A 45, B 36, C 48, D 35, E 21, LAT 47, OE 14, CLK 2.
 The HD-WF4 map is in its [flashing guide](docs/flashing-hd-wf4.md#how-the-four-outputs-work).

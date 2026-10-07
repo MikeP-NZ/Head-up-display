@@ -1,4 +1,4 @@
-# Huidu HD-WF4: 8 MB flash, two OTA slots for updates from the portal.
+# Huidu HD-WF4 and Adafruit Matrix Portal S3: 8 MB flash, two OTA slots for updates from the portal.
 # Name,   Type, SubType, Offset,   Size
 nvs,      data, nvs,     0x9000,   0x5000
 otadata,  data, ota,     0xE000,   0x2000

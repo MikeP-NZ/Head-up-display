@@ -6,10 +6,10 @@ boat data. LED preview frames come from the firmware's own Renderer
 (tools/preview/preview), so build that first:
 
     tools/preview/build.sh
-    python3 tools/mock_device.py [--port 8765] [--fresh] [--board wf4]
+    python3 tools/mock_device.py [--port 8765] [--fresh] [--board wf4|matrixportal]
 
 --fresh starts unconfigured, like a new device; --board picks which
-controller board to pretend to be (waveshare or wf4).
+controller board to pretend to be (waveshare, wf4 or matrixportal).
 """
 import argparse
 import copy
@@ -50,6 +50,8 @@ DEFAULTS = {
 
 
 WF4_PINS = {"r1": 2, "g1": 6, "b1": 10, "r2": 3, "g2": 7, "b2": 11, "a": 39, "b": 38, "c": 37, "d": 36, "e": 21, "lat": 33, "oe": 35, "clk": 34}
+MATRIXPORTAL_PINS = {"r1": 42, "g1": 41, "b1": 40, "r2": 38, "g2": 39, "b2": 37, "a": 45, "b": 36, "c": 48, "d": 35,
+                     "e": 21, "lat": 47, "oe": 14, "clk": 2}
 BOARDS = {
     "waveshare": {"id": "waveshare-s3-matrix", "name": "Waveshare ESP32-S3-RGB-Matrix", "buttonName": "BOOT",
                   "defaultClkPhase": False, "ports": [], "defaultPins": DEFAULTS["panel"]["pins"]},
@@ -58,6 +60,8 @@ BOARDS = {
                                                            ("X4", "X4 (75EX4)"), ("X1+X3", "X1 + X3, same image on both"),
                                                            ("X2+X4", "X2 + X4, same image on both")]],
             "defaultPins": WF4_PINS},
+    "matrixportal": {"id": "adafruit-matrixportal-s3", "name": "Adafruit Matrix Portal S3", "buttonName": "UP",
+                     "defaultClkPhase": True, "ports": [], "defaultPins": MATRIXPORTAL_PINS},
 }
 
 
