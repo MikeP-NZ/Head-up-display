@@ -4,6 +4,11 @@
 //   nc 192.168.4.1 1456 | tools/decode/decode
 //
 // Build: c++ -std=c++17 -Ilib/BoatData/src tools/decode/decode.cpp lib/BoatData/src/*.cpp -o tools/decode/decode
+//
+// Windows (PowerShell, no netcat needed):
+//
+//   tools\decode\build.ps1
+//   python tools\stream.py 192.168.4.1 1456 | tools\decode\decode.exe
 
 #include <chrono>
 #include <cstdio>
@@ -24,12 +29,15 @@ static void report(const LineDecoder& decoder, const BoatModel& model, uint32_t 
     BoatModel::Reading r = model.get(q, now);
     if (!r.valid) continue;
     Item item = itemForQuantity(q);
+    // Default units; bearings in the reference they were received in.
+    DisplayUnits units;
+    if (isTrueBearing(q)) units.bearing = BearingRef::True;
+    DisplayValue d = itemDisplay(item, r.value, units);
     char text[12];
-    float v = itemDisplayValue(item, r.value, SpeedUnit::Knots, DepthUnit::Meters);
-    formatItem(item, true, v, -1, text, sizeof(text));
-    char side = itemSide(item, v);
-    printf(" %s %s%s%c", quantityLabel(q), text[0] == ' ' ? text + strspn(text, " ") : text,
-           itemUnit(item, SpeedUnit::Knots, DepthUnit::Meters), side ? side : ' ');
+    formatItem(item, true, d.value, -1, text, sizeof(text), d.shortDistance);
+    char side = itemSide(item, d.value);
+    printf(" %s %s%s%c", quantityLabel(q), text[0] == ' ' ? text + strspn(text, " ") : text, d.unit,
+           side ? side : ' ');
   }
   printf("\n");
 }

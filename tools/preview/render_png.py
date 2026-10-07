@@ -2,6 +2,10 @@
 """Render the panel's screens to PNGs (LED-dot look) using the firmware Renderer.
 
     tools/preview/build.sh && python3 tools/preview/render_png.py [outdir]
+
+Windows (PowerShell):
+
+    tools\\preview\\build.ps1; python tools\\preview\\render_png.py [outdir]
 """
 import os
 import struct

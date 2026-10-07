@@ -10,6 +10,9 @@ display's Data settings at this computer's IP to test without the boat.
     python3 tools/yd_simulator.py --protocol raw       # YD RAW (NMEA 2000)
     python3 tools/yd_simulator.py --transport udp --port 1457
     python3 tools/yd_simulator.py --no-stw             # GPS speed only
+
+On Windows use `python` (or `py`) instead of `python3`, and allow Python
+through Windows Firewall when asked, so the display can connect.
 """
 import argparse
 import math

@@ -3,3 +3,4 @@ src/generated/
 .vscode/
 tools/decode/decode
 tools/preview/preview
+*.exe

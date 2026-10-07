@@ -5,7 +5,7 @@ Serves web/index.html and the same JSON API as the firmware, with simulated
 boat data. LED preview frames come from the firmware's own Renderer
 (tools/preview/preview), so build that first:
 
-    tools/preview/build.sh
+    tools/preview/build.sh                  (Windows: tools\\preview\\build.ps1)
     python3 tools/mock_device.py [--port 8765] [--fresh] [--board wf4|matrixportal]
 
 --fresh starts unconfigured, like a new device; --board picks which
@@ -363,7 +363,7 @@ def main():
     p.add_argument("--board", choices=sorted(BOARDS), default="waveshare")
     a = p.parse_args()
     if not os.path.exists(PREVIEW):
-        sys.exit("build the renderer first: tools/preview/build.sh")
+        sys.exit("build the renderer first: tools/preview/build.sh (Windows: tools\\preview\\build.ps1)")
     dev = Device(a.fresh, a.board)
     srv = ThreadingHTTPServer(("127.0.0.1", a.port), make_handler(dev))
     print("mock instrument display on http://127.0.0.1:%d" % a.port)

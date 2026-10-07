@@ -75,13 +75,23 @@ firmware first.
 
 **Waveshare ESP32-S3-RGB-Matrix** or **Adafruit Matrix Portal S3:**
 
-1. Install [PlatformIO](https://platformio.org/install) (the VS Code extension, or `brew install platformio`).
+1. Install [PlatformIO](https://platformio.org/install): the VS Code
+   extension on any OS, or `brew install platformio` on macOS. On Windows,
+   run the `pio` commands below from VS Code's PlatformIO terminal (the
+   PlatformIO sidebar → *Miscellaneous* → *New Terminal*). A normal
+   PowerShell window doesn't have `pio` on its PATH; there, use
+   `& "$env:USERPROFILE\.platformio\penv\Scripts\pio.exe"` in place of `pio`.
 2. Connect the board's USB-C port and run:
 
    ```bash
    pio run -e waveshare_s3_matrix -t upload   # Waveshare
    pio run -e matrixportal_s3 -t upload       # Matrix Portal S3
    ```
+
+   The commands are the same on Windows. The board shows up as a COM port
+   (*USB Serial Device* in Device Manager → *Ports (COM & LPT)*) without any
+   driver. PlatformIO finds it by itself; add `--upload-port COM5` if more than
+   one port is present.
 
    If the upload can't connect, hold **BOOT**, tap **RST** (**RESET** on the
    Matrix Portal), release **BOOT**, and try again. The Matrix Portal's
@@ -214,6 +224,8 @@ The **BOOT** button on the Waveshare board, **S1** on the HD-WF4, or **UP** on t
 
 ## Development
 
+macOS / Linux:
+
 ```bash
 pio run -e waveshare_s3_matrix -e huidu_hd_wf4 -e matrixportal_s3   # build all boards
 pio test -e native                       # parser / model / item unit tests on the host
@@ -226,13 +238,51 @@ python3 tools/yd_simulator.py            # fake YD gateway on TCP 1456 (NMEA 018
 python3 tools/yd_simulator.py --protocol raw --transport udp --port 1457
 ```
 
+Windows (PowerShell, in the VS Code PlatformIO terminal so `pio` is on the PATH):
+
+```powershell
+pio run -e waveshare_s3_matrix -e huidu_hd_wf4 -e matrixportal_s3   # build all boards
+pio test -e native                       # unit tests; needs a MinGW-w64 gcc on PATH
+tools\preview\build.ps1                  # host build of the panel renderer
+python tools\preview\render_png.py       # regenerate docs\panel\*.png (pip install pillow)
+python tools\mock_device.py --fresh      # portal against a fake device: http://127.0.0.1:8765
+python tools\mock_device.py --board wf4  # ... pretending to be an HD-WF4
+python tools\yd_simulator.py             # fake YD gateway on TCP 1456 (NMEA 0183)
+python tools\yd_simulator.py --protocol raw --transport udp --port 1457
+```
+
+Windows notes:
+
+- **C++ compiler.** `pio test -e native` and the `.ps1` build scripts need a
+  MinGW-w64 `g++` on the PATH. Install it with [MSYS2](https://www.msys2.org/)
+  (`pacman -S mingw-w64-ucrt-x86_64-gcc`, then add `C:\msys64\ucrt64\bin` to
+  the PATH), [WinLibs](https://winlibs.com/) or TDM-GCC. Visual Studio's
+  compiler isn't supported by these scripts.
+- **Scripts blocked.** If PowerShell refuses to run a `.ps1`, run it as
+  `powershell -ExecutionPolicy Bypass -File tools\preview\build.ps1`, or allow
+  local scripts once with `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`.
+- **Python.** Use `python` or `py`; `python3` may open the Microsoft Store
+  instead. Git Bash can also run the `.sh` scripts as they are.
+- **Firewall.** The first time `yd_simulator.py` listens, allow Python through
+  Windows Defender Firewall on *private* networks, or the display can't
+  connect. Mark the boat or bench Wi-Fi as a *private* network.
+
 To bench-test the real display without the boat, run `yd_simulator.py` on a
 laptop. Join the display and the laptop to the same network, then enter the
-laptop's IP and port on the display's **Data** tab.
+laptop's IP and port on the display's **Data** tab. Find the laptop's IP with
+`ipconfig getifaddr en0` (macOS), `hostname -I` (Linux) or `ipconfig`
+(Windows, *IPv4 Address* under the Wi-Fi adapter).
 
 `tools/decode/decode.cpp` runs the firmware's decoder against any stream, for
 example `nc 192.168.4.1 1456 | tools/decode/decode`. Build it with the command
-at the top of that file.
+at the top of that file. Windows has no `nc`; use the included Python
+equivalent instead:
+
+```powershell
+tools\decode\build.ps1
+python tools\stream.py 192.168.4.1 1456 | tools\decode\decode.exe
+python tools\stream.py --udp 1457 | tools\decode\decode.exe   # UDP server
+```
 
 ### Layout
 
@@ -248,7 +298,7 @@ src/
   Renderer.*      all panel screens (hardware-free; also builds on the host)
   Display.*       HUB75 driver glue
 web/index.html    the portal (embedded at build time)
-tools/            simulator, mock device, preview renderer, decoder CLI
+tools/            simulator, mock device, preview renderer, decoder CLI, stream.py (nc for Windows)
 ```
 
 HUB75 pin map for the Waveshare board, taken from Waveshare's examples:
