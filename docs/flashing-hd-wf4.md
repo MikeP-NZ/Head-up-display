@@ -110,7 +110,10 @@ flash the Waveshare image (`waveshare_s3_matrix`) to this board**: it expects
 
 - **Over Wi-Fi:** in the portal, go to System → Firmware update and upload
   `.pio/build/huidu_hd_wf4/firmware.bin`. Images built for another board are
-  refused, so you can't brick it by picking the wrong file.
+  refused, so you can't brick it by picking the wrong file. From PlatformIO:
+  `pio run -e huidu_hd_wf4 -t upload --upload-port headup.local` (see
+  [Uploading over Wi-Fi](../README.md#uploading-over-wi-fi-from-platformio)).
+  The same check applies.
 - **Over USB:** `pio run -e huidu_hd_wf4 -t upload`. No buttons or bridges are
   needed, because this firmware leaves the USB serial port on. If it ever
   can't connect (for example a crash loop), use download mode method B.

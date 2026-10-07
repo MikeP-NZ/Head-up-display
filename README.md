@@ -108,6 +108,36 @@ The web portal is compiled into the firmware (`scripts/embed_web.py` gzips
 Later updates can be uploaded from the portal's **System** tab: pick
 `.pio/build/<environment>/firmware.bin` for your board.
 
+### Uploading over Wi-Fi from PlatformIO
+
+Once a display is running this firmware, PlatformIO can update it over Wi-Fi
+instead of USB. It sends the image to the portal, the same as the System tab,
+and the display refuses images built for another board. Your computer must be
+on the same network as the display (the boat network, or the display's setup
+network at `192.168.71.1`).
+
+- **One upload over Wi-Fi:** give the display's address as the upload port:
+
+  ```bash
+  pio run -e waveshare_s3_matrix -t upload --upload-port headup.local
+  pio run -e huidu_hd_wf4 -t upload --upload-port 192.168.71.1
+  ```
+
+- **Always over Wi-Fi:** in `platformio.ini`, set `custom_upload = ota`, and set
+  `custom_ota_host` to the display's address (default `headup.local`). Both
+  can go under one board's `[env:...]` section to affect only that board.
+- **VS Code button:** PlatformIO sidebar → your environment → *Custom* →
+  **Upload over Wi-Fi** (or `pio run -t ota`). It always uploads over Wi-Fi to
+  `custom_ota_host`, whatever `custom_upload` says.
+
+The uploader is `scripts/ota_upload.py`; it also works on its own:
+`python scripts/ota_upload.py headup.local .pio/build/<environment>/firmware.bin`.
+
+**Windows with Norton (or other antivirus that scans HTTPS):** if ESP32 builds
+stop with *Failed to install Python dependencies into penv*, the antivirus is
+re-signing HTTPS and PlatformIO's package installer rejects its certificate.
+Set the user environment variable `UV_SYSTEM_CERTS` to `1` and restart VS Code.
+
 ## First-time setup
 
 1. Power up. The panel shows **SETUP** with the display's network name
