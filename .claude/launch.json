@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "mock-device",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["tools/mock_device.py", "--port", "8765"],
+      "port": 8765
+    }
+  ]
+}

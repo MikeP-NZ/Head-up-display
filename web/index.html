@@ -1,0 +1,1433 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#0e0e0e">
+<title>Speed Display</title>
+<style>
+:root {
+  /* Greyscale dark theme. Colour is reserved for status (ok / warn / error). */
+  --bg: #0e0e0e;
+  --panel: #171717;
+  --panel-2: #202020;
+  --line: #2e2e2e;
+  --text: #ededed;
+  --muted: #9a9a9a;
+  --accent: #d6d6d6;
+  --accent-ink: #111111;
+  --ok: #7cc48f;
+  --warn: #d4a95a;
+  --err: #e2756a;
+  --radius: 12px;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { margin: 0; background: var(--bg); color: var(--text); }
+body {
+  font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+header {
+  position: sticky; top: 0; z-index: 5;
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--line);
+}
+.bar { display: flex; align-items: center; gap: 12px; padding: 10px 16px; max-width: 880px; margin: 0 auto; }
+.brand { font-weight: 700; letter-spacing: .02em; }
+.brand small { display: block; font-weight: 400; color: var(--muted); font-size: 12px; }
+.pill {
+  margin-left: auto; display: flex; align-items: baseline; gap: 6px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 999px; padding: 4px 12px;
+  font-variant-numeric: tabular-nums;
+}
+.pill b { font-size: 20px; }
+.pill span { color: var(--muted); font-size: 12px; }
+.dot { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); display: inline-block; flex: none; }
+.dot.ok { background: var(--ok); } .dot.warn { background: var(--warn); } .dot.err { background: var(--err); }
+nav { display: flex; gap: 4px; overflow-x: auto; padding: 0 12px 8px; max-width: 880px; margin: 0 auto; scrollbar-width: none; }
+nav::-webkit-scrollbar { display: none; }
+nav button {
+  flex: none; border: 0; background: transparent; color: var(--muted); font: inherit; font-weight: 600;
+  padding: 7px 12px; border-radius: 8px; cursor: pointer;
+}
+nav button[aria-selected="true"] { background: var(--panel-2); color: var(--text); box-shadow: inset 0 -2px 0 var(--accent); }
+main { max-width: 880px; margin: 0 auto; padding: 16px; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; margin-bottom: 14px; }
+.card h2 { font-size: 15px; margin: 0 0 4px; }
+.card p.sub { color: var(--muted); margin: 0 0 14px; font-size: 13.5px; }
+.grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+label.field { display: block; }
+label.field > span, .field-label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 4px; }
+input[type=text], input[type=password], input[type=number], input[type=time], select {
+  width: 100%; font: inherit; color: var(--text); background: var(--panel-2);
+  border: 1px solid var(--line); border-radius: 8px; padding: 9px 10px; min-height: 40px;
+}
+input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+input[type=color] { width: 100%; height: 40px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel-2); padding: 3px; }
+input[type=range] { width: 100%; accent-color: var(--accent); }
+.check { display: flex; align-items: center; gap: 8px; font-size: 14px; cursor: pointer; }
+.check input { width: 18px; height: 18px; accent-color: var(--accent); }
+.hint { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+.row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.row > .grow { flex: 1 1 160px; }
+button.btn {
+  font: inherit; font-weight: 600; border-radius: 8px; padding: 9px 14px; min-height: 40px; cursor: pointer;
+  border: 1px solid var(--line); background: var(--panel-2); color: var(--text);
+}
+button.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+button.btn.danger { color: var(--err); }
+button.btn:disabled { opacity: .5; cursor: default; }
+.actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 14px; flex-wrap: wrap; }
+.seg { display: inline-flex; background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 2px; flex-wrap: wrap; }
+.seg label { cursor: pointer; }
+.seg input { position: absolute; opacity: 0; pointer-events: none; }
+.seg span { display: block; padding: 6px 12px; border-radius: 6px; font-size: 14px; font-weight: 600; color: var(--muted); }
+.seg input:checked + span { background: var(--accent); color: var(--accent-ink); }
+.seg input:focus-visible + span { outline: 2px solid var(--accent); }
+
+.live { display: grid; gap: 14px; grid-template-columns: 1fr; }
+@media (min-width: 720px) { .live { grid-template-columns: 1.1fr .9fr; } }
+.speed-big { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; min-height: 220px; }
+.speed-big .value { font-size: clamp(64px, 18vw, 112px); font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
+.speed-big .unit { color: var(--muted); font-size: 16px; margin-top: 6px; }
+.speed-big .kind { color: var(--accent); font-weight: 700; letter-spacing: .08em; font-size: 13px; }
+.speed-big .split { display: flex; gap: 22px; margin-top: 14px; color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+.speed-big .split b { color: var(--text); font-size: 17px; }
+.vals { display: grid; gap: 8px; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); }
+.val { background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
+.val .lbl { font-size: 12px; font-weight: 700; letter-spacing: .06em; color: var(--accent); }
+.val b { display: block; font-size: 22px; font-variant-numeric: tabular-nums; }
+.val small { color: var(--muted); font-size: 11.5px; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.val.off b { color: var(--muted); }
+.val .port { color: #ff5a4a; } .val .stbd { color: #3ccf5a; }
+.sections { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); margin-top: 12px; }
+.matrix-wrap { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+canvas#matrix { width: min(100%, 320px); aspect-ratio: 1; background: #000; border-radius: 10px; border: 1px solid var(--line); image-rendering: pixelated; }
+.steps { list-style: none; margin: 0; padding: 0; }
+.steps li { display: flex; gap: 10px; padding: 10px 0; border-top: 1px solid var(--line); }
+.steps li:first-child { border-top: 0; padding-top: 0; }
+.steps .dot { margin-top: 6px; }
+.steps b { display: block; font-size: 14px; }
+.steps .hint { margin-top: 2px; }
+table { width: 100%; border-collapse: collapse; font-size: 13.5px; font-variant-numeric: tabular-nums; }
+th, td { text-align: left; padding: 7px 6px; border-top: 1px solid var(--line); }
+th { color: var(--muted); font-weight: 600; border-top: 0; font-size: 12.5px; }
+.table-scroll { overflow-x: auto; }
+.kv { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; font-size: 14px; }
+.kv dt { color: var(--muted); }
+.kv dd { margin: 0; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.netlist { margin-top: 8px; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.netlist button {
+  display: flex; width: 100%; align-items: center; gap: 10px; text-align: left; font: inherit; color: var(--text);
+  background: var(--panel-2); border: 0; border-top: 1px solid var(--line); padding: 10px 12px; cursor: pointer;
+}
+.netlist button:first-child { border-top: 0; }
+.netlist .ssid { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.netlist .meta { color: var(--muted); font-size: 12.5px; }
+.tag { font-size: 11px; font-weight: 700; padding: 2px 6px; border-radius: 4px; background: var(--accent); color: var(--accent-ink); }
+.sniff {
+  font: 12.5px/1.5 var(--mono); background: #0a0a0a; color: #8c8c8c; border-radius: 8px; padding: 10px;
+  height: 260px; overflow: auto; white-space: pre; border: 1px solid var(--line);
+}
+.sniff .sp { color: #f2f2f2; }
+.banner { display: flex; gap: 10px; align-items: center; background: color-mix(in srgb, var(--warn) 16%, var(--panel)); border: 1px solid var(--warn); border-radius: var(--radius); padding: 10px 14px; margin-bottom: 14px; }
+.banner p { margin: 0; flex: 1; }
+.offline { background: color-mix(in srgb, var(--err) 16%, var(--panel)); border-color: var(--err); }
+details.help { margin-top: 10px; font-size: 13.5px; }
+details.help summary { cursor: pointer; color: var(--accent); font-weight: 600; }
+details.help ol, details.help ul { padding-left: 20px; margin: 8px 0; }
+details.help li { margin: 3px 0; }
+code { font-family: var(--mono); font-size: 12.5px; background: var(--panel-2); padding: 1px 5px; border-radius: 4px; }
+.pins { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 8px; }
+.pins label span { text-transform: uppercase; }
+.progress { height: 8px; background: var(--panel-2); border-radius: 4px; overflow: hidden; border: 1px solid var(--line); }
+.progress > div { height: 100%; width: 0; background: var(--accent); transition: width .2s; }
+#toast {
+  position: fixed; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom)); transform: translateX(-50%) translateY(16px);
+  background: var(--text); color: var(--bg); padding: 10px 16px; border-radius: 10px; font-weight: 600; font-size: 14px;
+  opacity: 0; visibility: hidden; pointer-events: none; transition: opacity .2s, transform .2s, visibility .2s;
+  z-index: 20; max-width: calc(100% - 32px);
+}
+#toast.show { opacity: 1; visibility: visible; transform: translateX(-50%) translateY(0); }
+#toast.err { background: var(--err); color: #fff; }
+.muted { color: var(--muted); }
+</style>
+</head>
+<body>
+<header>
+  <div class="bar">
+    <div class="brand">Speed Display<small id="hdr-sub">connecting…</small></div>
+    <div class="pill" aria-live="polite"><span class="dot" id="hdr-dot"></span><b id="hdr-speed">--.-</b><span id="hdr-unit">KN</span></div>
+  </div>
+  <nav role="tablist" aria-label="Sections">
+    <button role="tab" data-tab="live" aria-selected="true">Live</button>
+    <button role="tab" data-tab="wifi">Wi-Fi</button>
+    <button role="tab" data-tab="data">Data</button>
+    <button role="tab" data-tab="speed">Units</button>
+    <button role="tab" data-tab="display">Display</button>
+    <button role="tab" data-tab="panel">Panel</button>
+    <button role="tab" data-tab="system">System</button>
+  </nav>
+</header>
+
+<main>
+  <div class="banner offline" id="offline" hidden><p><b>Lost contact with the display.</b> It may be rebooting or switching Wi-Fi. Retrying…</p></div>
+  <div class="banner" id="reboot-banner" hidden><p>Panel settings were saved and take effect after a reboot.</p><button class="btn primary" data-action="reboot">Reboot now</button></div>
+
+  <!-- LIVE -->
+  <section id="tab-live" role="tabpanel">
+    <div class="live">
+      <div class="card speed-big">
+        <div class="kind" id="live-kind">—</div>
+        <div class="value" id="live-value">--.-</div>
+        <div class="unit" id="live-unit">knots</div>
+        <div class="split">
+          <div>STW <b id="live-stw">—</b></div>
+          <div>SOG <b id="live-sog">—</b></div>
+        </div>
+      </div>
+      <div class="card matrix-wrap">
+        <canvas id="matrix" width="320" height="320" aria-label="Live preview of the LED panel"></canvas>
+        <div class="hint" id="matrix-note">Live view of the LED panel</div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Instruments</h2>
+      <p class="sub">Every value the display has received. Choose which ones the panel shows on the Display tab.</p>
+      <div class="vals" id="values"></div>
+    </div>
+    <div class="card">
+      <h2>Setup checklist</h2>
+      <p class="sub">Everything needed to get instrument data from the Yacht Devices gateway onto the panel.</p>
+      <ul class="steps" id="steps"></ul>
+    </div>
+    <div class="card">
+      <h2>Data sources seen</h2>
+      <p class="sub">Every device on the bus that reported a value. With more than one speed sensor or GPS, pick one on the Units tab.</p>
+      <div class="table-scroll">
+        <table>
+          <thead><tr><th>Source</th><th>Type</th><th>From</th><th>Value</th><th>Age</th><th>Msgs</th></tr></thead>
+          <tbody id="sources"><tr><td colspan="6" class="muted">Nothing yet.</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- WIFI -->
+  <section id="tab-wifi" role="tabpanel" hidden>
+    <form class="card" id="form-wifi">
+      <h2>Boat network</h2>
+      <p class="sub">The Wi-Fi network of your Yacht Devices gateway (or the boat router it is joined to).</p>
+      <div class="grid">
+        <label class="field"><span>Network name (SSID)</span>
+          <input type="text" id="wifi-ssid" autocomplete="off" autocapitalize="off" spellcheck="false" maxlength="32" placeholder="e.g. YDWG">
+        </label>
+        <label class="field"><span>Password</span>
+          <input type="password" id="wifi-password" autocomplete="new-password" maxlength="63" placeholder="">
+          <div class="hint" id="wifi-password-hint"></div>
+        </label>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <label class="check"><input type="checkbox" id="wifi-open"> Open network (no password)</label>
+      </div>
+      <div class="row" style="margin-top:12px">
+        <button type="button" class="btn" id="scan-btn">Scan for networks</button>
+        <span class="hint" id="scan-note"></span>
+      </div>
+      <div class="netlist" id="netlist" hidden></div>
+      <details class="help">
+        <summary>Yacht Devices defaults</summary>
+        <ul>
+          <li>YDWG-02 gateway: network <code>YDWG</code>, password <code>12345678</code>, address <code>192.168.4.1</code>.</li>
+          <li>YDNR-02 router: network <code>YDNR</code>, password <code>12345678</code>, address <code>192.168.4.1</code>.</li>
+          <li>If you made the network open, tick <i>Open network</i>.</li>
+          <li>If the gateway is joined to a boat router instead (client mode), enter the router's network here and set the gateway's IP address on the Data tab.</li>
+        </ul>
+      </details>
+      <div class="actions"><button class="btn primary" type="submit">Save &amp; connect</button></div>
+    </form>
+
+    <form class="card" id="form-portal">
+      <h2>Setup access point</h2>
+      <p class="sub">The display's own Wi-Fi network for this page, at <code>http://192.168.71.1</code>. On the boat network the page is also at <code id="portal-url">http://speed.local</code>.</p>
+      <div class="grid">
+        <label class="field"><span>When to broadcast it</span>
+          <select id="portal-apMode">
+            <option value="always">Always</option>
+            <option value="fallback">Only when the boat Wi-Fi is unavailable</option>
+          </select>
+          <div class="hint">Holding the <span class="btn-name">BOOT</span> button for 3 seconds always turns it on for 15 minutes.</div>
+        </label>
+        <label class="field"><span>Network name</span>
+          <input type="text" id="portal-ssid" maxlength="32" autocomplete="off" spellcheck="false">
+        </label>
+        <label class="field"><span>Password</span>
+          <input type="password" id="portal-password" maxlength="63" autocomplete="new-password">
+          <div class="hint">8–63 characters. It is shown on the panel's setup screen.</div>
+        </label>
+        <label class="field"><span>Hostname</span>
+          <input type="text" id="portal-hostname" maxlength="32" autocomplete="off" spellcheck="false" pattern="[A-Za-z0-9-]+">
+          <div class="hint">Reachable as <i>hostname</i>.local on the boat network.</div>
+        </label>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <label class="check"><input type="checkbox" id="portal-open"> No password (anyone nearby can change settings)</label>
+      </div>
+      <div class="actions"><button class="btn primary" type="submit">Save</button></div>
+    </form>
+  </section>
+
+  <!-- DATA -->
+  <section id="tab-data" role="tabpanel" hidden>
+    <form class="card" id="form-data">
+      <h2>Gateway data port</h2>
+      <p class="sub">Where the display reads NMEA data from. Factory setting on Yacht Devices gateways: Server #1, TCP, port 1456, NMEA 0183.</p>
+      <div class="grid">
+        <div>
+          <span class="field-label">Network protocol</span>
+          <div class="seg" role="radiogroup" aria-label="Network protocol">
+            <label><input type="radio" name="transport" value="tcp"><span>TCP</span></label>
+            <label><input type="radio" name="transport" value="udp"><span>UDP</span></label>
+          </div>
+          <div class="hint" id="transport-hint"></div>
+        </div>
+        <div>
+          <span class="field-label">Data protocol</span>
+          <div class="seg" role="radiogroup" aria-label="Data protocol">
+            <label><input type="radio" name="protocol" value="auto"><span>Auto</span></label>
+            <label><input type="radio" name="protocol" value="nmea0183"><span>NMEA 0183</span></label>
+            <label><input type="radio" name="protocol" value="raw"><span>RAW</span></label>
+          </div>
+          <div class="hint">Must match the server's «Data protocol» in the gateway. Auto accepts both.</div>
+        </div>
+        <label class="field" id="host-field"><span>Gateway address</span>
+          <input type="text" id="data-host" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Automatic (Wi-Fi gateway)">
+          <div class="hint">Leave empty when joined to the gateway's own network.</div>
+        </label>
+        <label class="field"><span>Port</span>
+          <input type="number" id="data-port" min="1" max="65535" inputmode="numeric">
+        </label>
+      </div>
+      <div class="row" style="margin-top:12px">
+        <button type="button" class="btn" id="discover-btn">Find gateway</button>
+        <div class="grow"><div class="progress" id="discover-progress" hidden><div></div></div></div>
+      </div>
+      <div class="netlist" id="discover-list" hidden></div>
+      <div class="hint" id="discover-note"></div>
+      <details class="help">
+        <summary>Setting up the gateway's server port</summary>
+        <ol>
+          <li>Join the gateway's Wi-Fi with a phone and open <code>http://192.168.4.1</code> (login <code>admin</code> / <code>admin</code> unless changed).</li>
+          <li>Open <b>NMEA Server</b>. Enable a server, choose TCP or UDP and a port, and set its data protocol to <b>NMEA 0183</b> or <b>RAW</b>.</li>
+          <li>Prefer <b>UDP</b> if chart-plotter apps also use the gateway: a TCP server only accepts 3 connections, and UDP has no limit.</li>
+          <li>For NMEA 0183, check that the transmit filter lets through the sentences for the values you want: <code>VHW</code> (speed through water, heading), <code>RMC</code>/<code>VTG</code> (GPS speed), <code>MWV</code> (wind), <code>MWD</code> (wind direction), <code>HDG</code>/<code>HDM</code> (heading), <code>DPT</code>/<code>DBT</code> (depth), <code>RMB</code>/<code>BWC</code> (waypoint) and <code>VPW</code> (VMG).</li>
+          <li>RAW carries the NMEA 2000 messages directly (PGN 128259 speed, 129026 GPS speed, 130306 wind, 127250 heading, 128267 depth, 129284 waypoint), so no filters are involved. VMG to wind has no standard NMEA 2000 message; it needs NMEA 0183 <code>VPW</code>.</li>
+        </ol>
+      </details>
+      <div class="actions"><button class="btn primary" type="submit">Save &amp; reconnect</button></div>
+    </form>
+
+    <div class="card">
+      <h2>Connection</h2>
+      <dl class="kv" id="data-kv"></dl>
+    </div>
+
+    <div class="card">
+      <h2>Incoming data</h2>
+      <p class="sub">The most recent lines received from the gateway. Lines carrying values the display uses are highlighted.</p>
+      <div class="row" style="margin-bottom:8px">
+        <label class="check"><input type="checkbox" id="sniff-speed"> Value lines only</label>
+        <label class="check"><input type="checkbox" id="sniff-pause"> Pause</label>
+        <button class="btn" type="button" id="sniff-clear" style="margin-left:auto">Clear</button>
+      </div>
+      <div class="sniff" id="sniff" aria-live="off"></div>
+    </div>
+  </section>
+
+  <!-- SPEED -->
+  <section id="tab-speed" role="tabpanel" hidden>
+    <form class="card" id="form-speed">
+      <h2>Speed and units</h2>
+      <p class="sub">STW is speed through water (paddle wheel/log). SOG is speed over ground (GPS). The <i>Boat speed</i> item shows whichever the speed source picks.</p>
+      <div class="grid">
+        <label class="field"><span>Speed source</span>
+          <select id="speed-source">
+            <option value="prefer_stw">Through water, else GPS</option>
+            <option value="prefer_sog">GPS, else through water</option>
+            <option value="stw">Through water only (STW)</option>
+            <option value="sog">GPS only (SOG)</option>
+          </select>
+        </label>
+        <label class="field"><span>Speed units</span>
+          <select id="speed-unit">
+            <option value="kn">Knots</option>
+            <option value="kmh">km/h</option>
+            <option value="mph">mph</option>
+            <option value="mps">m/s</option>
+          </select>
+        </label>
+        <label class="field"><span>Depth units</span>
+          <select id="speed-depthUnit">
+            <option value="m">Metres</option>
+            <option value="ft">Feet</option>
+          </select>
+        </label>
+        <label class="field"><span>Speed decimals</span>
+          <select id="speed-decimals">
+            <option value="-1">Automatic (1 below 100)</option>
+            <option value="0">0 — 12</option>
+            <option value="1">1 — 12.3</option>
+            <option value="2">2 — 12.34</option>
+          </select>
+        </label>
+        <label class="field"><span>Smoothing: <b id="smoothing-val"></b></span>
+          <input type="range" id="speed-smoothing" min="0" max="10" step="0.5">
+          <div class="hint">Averages out wave-induced jumps in every value. 0 shows every reading as is.</div>
+        </label>
+        <label class="field"><span>Show "no data" after (seconds)</span>
+          <input type="number" id="speed-staleSec" min="1" max="120" inputmode="numeric">
+        </label>
+      </div>
+    </form>
+    <form class="card" id="form-filter">
+      <h2>Source device</h2>
+      <p class="sub">With more than one speed sensor or GPS on the bus, pick which one to trust. NMEA 2000 devices appear by source address with RAW, and as talker IDs with NMEA 0183.</p>
+      <div class="grid">
+        <label class="field"><span>Through water (STW)</span><select id="speed-stwFilter"></select></label>
+        <label class="field"><span>GPS (SOG)</span><select id="speed-sogFilter"></select></label>
+      </div>
+      <div class="actions"><button class="btn primary" type="submit" form="form-speed">Save</button></div>
+    </form>
+  </section>
+
+  <!-- DISPLAY -->
+  <section id="tab-display" role="tabpanel" hidden>
+    <form class="card" id="form-layout">
+      <h2>Layout</h2>
+      <p class="sub">Split the panel into sections, each showing one value. Changes apply to the panel immediately.</p>
+      <div>
+        <span class="field-label">Sections</span>
+        <div class="seg" role="radiogroup" aria-label="Sections">
+          <label><input type="radio" name="sections" value="1"><span>1</span></label>
+          <label><input type="radio" name="sections" value="2"><span>2</span></label>
+          <label><input type="radio" name="sections" value="4"><span>4</span></label>
+        </div>
+        <div class="hint" id="layout-hint"></div>
+      </div>
+      <div class="sections" id="section-pickers"></div>
+      <div class="hint">Wind angles show 0–180° with P (port, red) or S (starboard, green). Headings and wind direction are magnetic. Sections without data show dashes.</div>
+    </form>
+
+    <form class="card" id="form-display">
+      <h2>Appearance</h2>
+      <p class="sub">Changes apply to the panel immediately.</p>
+      <div class="grid">
+        <label class="field"><span>Brightness: <b id="brightness-val"></b></span>
+          <input type="range" id="display-brightness" min="1" max="255">
+        </label>
+        <label class="field"><span>Rotation</span>
+          <select id="display-rotation">
+            <option value="0">0°</option><option value="1">90°</option><option value="2">180°</option><option value="3">270°</option>
+          </select>
+        </label>
+        <label class="field"><span>Value colour</span><input type="color" id="display-speedColor"></label>
+        <label class="field"><span>Label colour</span><input type="color" id="display-accentColor"></label>
+      </div>
+      <div class="row" style="margin-top:12px; gap:18px">
+        <label class="check"><input type="checkbox" id="display-showSource"> Labels (STW, AWA…)</label>
+        <label class="check"><input type="checkbox" id="display-showUnit"> Unit</label>
+        <label class="check"><input type="checkbox" id="display-showStatus"> Status dots</label>
+      </div>
+      <div class="hint">Status dots, top right of the 1-section layout: Wi-Fi, then data. Green is good, amber means connected with no value yet, red means down.</div>
+    </form>
+
+    <form class="card" id="form-night">
+      <h2>Night mode</h2>
+      <p class="sub">Dim, single-colour display to keep night vision. A short press of the <span class="btn-name">BOOT</span> button toggles it.</p>
+      <div class="grid">
+        <label class="field"><span>Mode</span>
+          <select id="night-mode">
+            <option value="off">Off</option>
+            <option value="on">On</option>
+            <option value="schedule">Scheduled</option>
+          </select>
+        </label>
+        <label class="field"><span>Night brightness: <b id="night-brightness-val"></b></span>
+          <input type="range" id="night-brightness" min="1" max="255">
+        </label>
+        <label class="field"><span>Night colour</span><input type="color" id="night-color"></label>
+        <label class="field night-sched"><span>From</span><input type="time" id="night-start"></label>
+        <label class="field night-sched"><span>Until</span><input type="time" id="night-end"></label>
+        <label class="field night-sched"><span>Time zone (UTC offset)</span>
+          <select id="night-utcOffset"></select>
+          <div class="hint"><button type="button" class="btn" id="tz-btn" style="min-height:30px;padding:3px 10px;margin-top:4px">Use this phone's time zone</button></div>
+        </label>
+      </div>
+      <div class="hint night-sched" id="clock-note"></div>
+    </form>
+
+    <div class="card">
+      <h2>Tools</h2>
+      <div class="row">
+        <button class="btn" type="button" data-action="test-pattern">Show test pattern</button>
+        <button class="btn" type="button" data-action="info">Show connection info on panel</button>
+      </div>
+      <div class="hint">The test pattern cycles red, green, blue and white, then colour bars with a marker in the top-left corner. Use it to check the Panel settings.</div>
+    </div>
+  </section>
+
+  <!-- PANEL -->
+  <section id="tab-panel" role="tabpanel" hidden>
+    <form class="card" id="form-panel">
+      <h2>LED panel hardware</h2>
+      <p class="sub" id="panel-sub">Changes need a reboot.</p>
+      <div class="grid">
+        <label class="field"><span>Panel width (px)</span><input type="number" id="panel-width" min="16" max="128"></label>
+        <label class="field"><span>Panel height (px)</span><input type="number" id="panel-height" min="16" max="128"></label>
+        <label class="field"><span>Panels chained</span><input type="number" id="panel-chain" min="1" max="4"></label>
+        <label class="field"><span>Scan rate</span>
+          <select id="panel-scan">
+            <option value="standard">Standard (1/16 on 32 px, 1/32 on 64 px)</option>
+            <option value="four">1/8 scan (32 px high)</option>
+            <option value="four-alt">1/8 scan, alternate row order</option>
+          </select>
+          <div class="hint">Usually printed on the panel's back, e.g. P4-64x32-8S = 1/8. Rows doubled or in blocks? Try the alternate order.</div>
+        </label>
+        <label class="field"><span>Driver chip</span>
+          <select id="panel-driver">
+            <option value="SHIFTREG">Generic shift register</option>
+            <option value="FM6126A">FM6126A / ICN2038</option>
+            <option value="FM6124">FM6124</option>
+            <option value="ICN2038S">ICN2038S</option>
+            <option value="MBI5124">MBI5124</option>
+            <option value="DP3246">DP3246</option>
+          </select>
+          <div class="hint">Blank or garbled panel? Try FM6126A, then Generic.</div>
+        </label>
+        <label class="field"><span>Colour order</span>
+          <select id="panel-colorOrder">
+            <option>RGB</option><option>RBG</option><option>GRB</option><option>GBR</option><option>BRG</option><option>BGR</option>
+          </select>
+          <div class="hint">If the test pattern's RED shows another colour, change this.</div>
+        </label>
+        <label class="field"><span>Clock speed</span>
+          <select id="panel-i2sSpeed"><option value="8">8 MHz</option><option value="16">16 MHz</option><option value="20">20 MHz</option></select>
+          <div class="hint">Lower it if you see ghosting or sparkles.</div>
+        </label>
+        <label class="field"><span>Latch blanking</span><input type="number" id="panel-latchBlanking" min="1" max="4"></label>
+        <div>
+          <span class="field-label">Clock phase</span>
+          <label class="check"><input type="checkbox" id="panel-clkPhase"> Clock data on the rising edge</label>
+          <div class="hint" id="clk-hint"></div>
+        </div>
+      </div>
+      <div id="port-block" hidden>
+        <h2 style="margin-top:18px">Output connector</h2>
+        <p class="sub">The four HUB75 outputs work in pairs: X1 and X3 share data lines, and so do X2 and X4. A pair can drive two panels with the same image, for example back-to-back so the speed reads from both sides. To add panels, chain them from the connector you use.</p>
+        <div class="grid">
+          <label class="field"><span>Connector</span><select id="panel-port"></select></label>
+        </div>
+      </div>
+      <div id="pins-block">
+        <h2 style="margin-top:18px">HUB75 pins (GPIO)</h2>
+        <p class="sub">Pre-set for this board. Only change them for custom wiring.</p>
+        <div class="pins" id="pins"></div>
+      </div>
+      <div class="actions">
+        <button class="btn" type="button" id="pins-reset">Board default pins</button>
+        <button class="btn primary" type="submit">Save</button>
+      </div>
+    </form>
+  </section>
+
+  <!-- SYSTEM -->
+  <section id="tab-system" role="tabpanel" hidden>
+    <div class="card">
+      <h2>Device</h2>
+      <dl class="kv" id="sys-kv"></dl>
+    </div>
+    <div class="card">
+      <h2>Firmware update</h2>
+      <p class="sub">Upload a <code>firmware.bin</code> built with PlatformIO (<code id="fw-path">.pio/build/…/firmware.bin</code>). Settings are kept. Images built for a different board are refused.</p>
+      <div class="row">
+        <input type="file" id="fw-file" accept=".bin" class="grow">
+        <button class="btn primary" type="button" id="fw-btn" disabled>Upload</button>
+      </div>
+      <div class="progress" id="fw-progress" style="margin-top:10px" hidden><div></div></div>
+      <div class="hint" id="fw-note"></div>
+    </div>
+    <div class="card">
+      <h2>Settings backup</h2>
+      <p class="sub">Exports everything except passwords.</p>
+      <div class="row">
+        <a class="btn" href="/api/export" download style="text-decoration:none;display:inline-flex;align-items:center">Export</a>
+        <label class="btn" style="display:inline-flex;align-items:center">Import…<input type="file" id="import-file" accept=".json,application/json" hidden></label>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Restart</h2>
+      <div class="row">
+        <button class="btn" type="button" data-action="reboot">Reboot</button>
+        <button class="btn danger" type="button" data-action="factory-reset">Factory reset</button>
+      </div>
+      <div class="hint">Factory reset can also be done by holding the <span class="btn-name">BOOT</span> button for 10 seconds.</div>
+    </div>
+  </section>
+</main>
+<div id="toast" role="status"></div>
+
+<script>
+'use strict';
+const $ = (s, el = document) => el.querySelector(s);
+const $$ = (s, el = document) => Array.from(el.querySelectorAll(s));
+const UNIT_NAMES = { KN: 'knots', 'KM/H': 'km/h', MPH: 'mph', 'M/S': 'm/s', NM: 'nautical miles', M: 'metres', FT: 'feet', MAG: 'magnetic' };
+const PIN_NAMES = ['r1', 'g1', 'b1', 'r2', 'g2', 'b2', 'a', 'b', 'c', 'd', 'e', 'lat', 'oe', 'clk'];
+// Fallback when the firmware does not send its item list.
+const ITEMS = [
+  { id: 'none', label: '', name: 'Nothing' }, { id: 'speed', label: 'SPD', name: 'Boat speed (per source mode)' },
+  { id: 'stw', label: 'STW', name: 'Speed through water' }, { id: 'sog', label: 'SOG', name: 'Speed over ground' },
+  { id: 'awa', label: 'AWA', name: 'Apparent wind angle' }, { id: 'aws', label: 'AWS', name: 'Apparent wind speed' },
+  { id: 'twa', label: 'TWA', name: 'True wind angle' }, { id: 'tws', label: 'TWS', name: 'True wind speed' },
+  { id: 'twd', label: 'TWD', name: 'True wind direction (magnetic)' }, { id: 'hdg', label: 'HDG', name: 'Heading (magnetic)' },
+  { id: 'dtw', label: 'DTW', name: 'Distance to waypoint' }, { id: 'vmg', label: 'VMG', name: 'Velocity made good to wind' },
+  { id: 'vmc', label: 'VMC', name: 'Velocity made good to waypoint' }, { id: 'dpt', label: 'DPT', name: 'Depth' },
+];
+const SPEED_IDS = ['speed', 'stw', 'sog', 'aws', 'tws', 'vmg', 'vmc'];
+const ENV_FOR_BOARD = { 'waveshare-s3-matrix': 'waveshare_s3_matrix', 'huidu-hd-wf4': 'huidu_hd_wf4' };
+
+let cfg = null;
+let st = null;
+let activeTab = 'live';
+let online = true;
+
+// ---------- helpers ----------
+function store(key, value) { try { localStorage.setItem(key, value); } catch (e) { /* private mode */ } }
+function recall(key) { try { return localStorage.getItem(key); } catch (e) { return null; } }
+
+let toastTimer;
+function toast(msg, isErr) {
+  const t = $('#toast');
+  t.textContent = msg;
+  t.className = 'show' + (isErr ? ' err' : '');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { t.className = isErr ? 'err' : ''; }, isErr ? 5000 : 2200);
+}
+
+async function api(path, body, opts = {}) {
+  const init = { method: body === undefined ? (opts.method || 'GET') : 'POST', cache: 'no-store' };
+  if (body !== undefined) {
+    init.headers = { 'Content-Type': 'application/json' };
+    init.body = typeof body === 'string' ? body : JSON.stringify(body);
+  }
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), opts.timeout || 6000);
+  init.signal = ctl.signal;
+  try {
+    const r = await fetch(path, init);
+    if (opts.raw) return r;
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok || j.ok === false) throw new Error(j.error || ('HTTP ' + r.status));
+    return j;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function ago(ms) {
+  if (ms == null || ms < 0) return '—';
+  if (ms < 1000) return ms + ' ms';
+  if (ms < 60000) return (ms / 1000).toFixed(ms < 10000 ? 1 : 0) + ' s';
+  return Math.round(ms / 60000) + ' min';
+}
+function minutesToTime(m) { return String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0'); }
+function timeToMinutes(t) { const [h, m] = (t || '0:0').split(':').map(Number); return (h * 60 + m) % 1440; }
+function fmtOffset(min) {
+  const s = min < 0 ? '−' : '+';
+  const a = Math.abs(min);
+  return 'UTC' + s + Math.floor(a / 60) + (a % 60 ? ':' + String(a % 60).padStart(2, '0') : '');
+}
+function escapeHtml(s) { return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+function itemList() { return (cfg && cfg.itemList) || ITEMS; }
+// A value from /api/status, in display units, as text for the portal.
+function fmtValue(id, v) {
+  if (v == null) return '—';
+  const dec = cfg && cfg.speed.decimals >= 0 ? cfg.speed.decimals : 1;
+  switch (id) {
+    case 'awa': case 'twa': {
+      const a = Math.round(Math.abs(v));
+      const side = a === 0 || a === 180 ? '' : v < 0 ? ' <span class="port">P</span>' : ' <span class="stbd">S</span>';
+      return a + '°' + side;
+    }
+    case 'twd': case 'hdg': return String(Math.round(((v % 360) + 360) % 360) % 360).padStart(3, '0') + '°';
+    case 'dtw': return v.toFixed(v < 10 ? 2 : v < 100 ? 1 : 0);
+    case 'dpt': return v.toFixed(v < 100 ? 1 : 0);
+    case 'vmg': return Math.abs(v).toFixed(dec);
+    default: return v.toFixed(dec);
+  }
+}
+function setRadio(name, value) { const el = $(`input[name="${name}"][value="${value}"]`); if (el) el.checked = true; }
+function getRadio(name) { const el = $(`input[name="${name}"]:checked`); return el ? el.value : undefined; }
+
+// ---------- tabs ----------
+function showTab(name) {
+  activeTab = name;
+  $$('nav button').forEach(b => {
+    const on = b.dataset.tab === name;
+    b.setAttribute('aria-selected', String(on));
+    if (on) b.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  });
+  $$('main > section').forEach(s => { s.hidden = s.id !== 'tab-' + name; });
+  store('tab', name);
+  if (name === 'data') pollSniff();
+  if (name === 'live') pollFrame();
+}
+$$('nav button').forEach(b => b.addEventListener('click', () => showTab(b.dataset.tab)));
+
+// ---------- config forms ----------
+function buildSectionPickers() {
+  const box = $('#section-pickers');
+  if (box.dataset.built) return;
+  box.dataset.built = '1';
+  for (let i = 0; i < 4; i++) {
+    const l = document.createElement('label');
+    l.className = 'field';
+    l.innerHTML = `<span id="section-name-${i}">Section ${i + 1}</span><select id="section-item-${i}"></select>`;
+    const sel = l.querySelector('select');
+    for (const it of itemList()) {
+      if (it.id === 'none' && i === 0) continue;
+      const o = document.createElement('option');
+      o.value = it.id;
+      o.textContent = it.id === 'none' ? '(empty)' : `${it.label} — ${it.name}`;
+      sel.appendChild(o);
+    }
+    sel.addEventListener('change', queueDisplaySave);
+    box.appendChild(l);
+  }
+}
+
+// Which panel area each section covers, mirroring the firmware's layout.
+function syncLayout() {
+  const n = Number(getRadio('sections') || 1);
+  const rot = Number($('#display-rotation').value || 0);
+  const p = cfg ? cfg.panel : { width: 64, height: 32, chain: 1 };
+  let w = p.width * p.chain, h = p.height;
+  if (rot % 2) [w, h] = [h, w];
+  let names;
+  if (n === 1) names = ['Whole panel'];
+  else if (n === 2) names = h >= w ? ['Top', 'Bottom'] : ['Left', 'Right'];
+  else if (h >= 2 * w) names = ['Top', 'Second', 'Third', 'Bottom'];
+  else if (w >= 4 * h) names = ['Left', 'Second', 'Third', 'Right'];
+  else names = ['Top left', 'Top right', 'Bottom left', 'Bottom right'];
+  for (let i = 0; i < 4; i++) {
+    $('#section-item-' + i).closest('label').hidden = i >= n;
+    if (i < n) $('#section-name-' + i).textContent = `Section ${i + 1}: ${names[i]}`;
+  }
+  let cw = w, ch = h;
+  if (n === 2) { if (h >= w) ch = h / 2; else cw = w / 2; }
+  if (n === 4) { if (h >= 2 * w) ch = h / 4; else if (w >= 4 * h) cw = w / 4; else { cw = w / 2; ch = h / 2; } }
+  $('#layout-hint').textContent = `${w}×${h} panel${rot % 2 ? ' (portrait, set by Rotation below)' : ''}: each section is ${Math.floor(cw)}×${Math.floor(ch)} pixels.`;
+}
+$$('input[name="sections"]').forEach(r => r.addEventListener('change', queueDisplaySave));
+
+function buildStaticControls() {
+  const tz = $('#night-utcOffset');
+  for (let m = -12 * 60; m <= 14 * 60; m += 30) {
+    const o = document.createElement('option');
+    o.value = m;
+    o.textContent = fmtOffset(m);
+    tz.appendChild(o);
+  }
+  const pins = $('#pins');
+  for (const p of PIN_NAMES) {
+    const l = document.createElement('label');
+    l.className = 'field';
+    l.innerHTML = `<span>${p}</span><input type="number" id="pin-${p}" min="-1" max="48" inputmode="numeric">`;
+    pins.appendChild(l);
+  }
+}
+
+function fillForms() {
+  const c = cfg;
+  $('#wifi-ssid').value = c.wifi.ssid;
+  $('#wifi-open').checked = c.wifi.open && !!c.wifi.ssid;
+  $('#wifi-password').value = '';
+  $('#wifi-password').placeholder = c.wifi.ssid && !c.wifi.open ? 'Saved — leave empty to keep' : '';
+  $('#wifi-password-hint').textContent = '';
+  syncOpen('wifi');
+
+  $('#portal-apMode').value = c.portal.apMode;
+  $('#portal-ssid').value = c.portal.ssid;
+  $('#portal-ssid').placeholder = c.portal.defaultSsid;
+  $('#portal-password').value = '';
+  $('#portal-password').placeholder = c.portal.open ? '' : 'Saved — leave empty to keep';
+  $('#portal-open').checked = c.portal.open;
+  $('#portal-hostname').value = c.portal.hostname;
+  $('#portal-url').textContent = 'http://' + c.portal.hostname + '.local';
+  syncOpen('portal');
+
+  setRadio('transport', c.data.transport);
+  setRadio('protocol', c.data.protocol);
+  $('#data-host').value = c.data.host;
+  $('#data-port').value = c.data.port;
+  syncTransport();
+
+  $('#speed-source').value = c.speed.source;
+  $('#speed-unit').value = c.speed.unit;
+  $('#speed-decimals').value = String(c.speed.decimals);
+  $('#speed-smoothing').value = c.speed.smoothing;
+  $('#speed-staleSec').value = c.speed.staleSec;
+  $('#speed-depthUnit').value = c.speed.depthUnit || 'm';
+  syncSmoothing();
+  fillFilterSelects();
+
+  const d = c.display;
+  buildSectionPickers();
+  setRadio('sections', String(d.sections || 1));
+  const items = d.items || ['speed', 'aws', 'awa', 'dpt'];
+  for (let i = 0; i < 4; i++) $('#section-item-' + i).value = items[i] || 'none';
+  $('#display-brightness').value = d.brightness;
+  $('#display-rotation').value = String(d.rotation);
+  $('#display-speedColor').value = d.speedColor;
+  $('#display-accentColor').value = d.accentColor;
+  $('#display-showSource').checked = d.showSource;
+  $('#display-showUnit').checked = d.showUnit;
+  $('#display-showStatus').checked = d.showStatus;
+  $('#night-mode').value = d.night.mode;
+  $('#night-brightness').value = d.night.brightness;
+  $('#night-color').value = d.night.color;
+  $('#night-start').value = minutesToTime(d.night.start);
+  $('#night-end').value = minutesToTime(d.night.end);
+  $('#night-utcOffset').value = String(Math.round(d.night.utcOffset / 30) * 30);
+  syncBrightness();
+  syncNight();
+  syncLayout();
+
+  const b = c.board;
+  const hasPorts = b.ports.length > 0;
+  $$('.btn-name').forEach(el => { el.textContent = b.buttonName; });
+  $('#panel-sub').textContent = `Defaults suit the ${b.name}. Changes need a reboot.`;
+  $('#clk-hint').textContent = `This board's default: ${b.defaultClkPhase ? 'ticked' : 'unticked'}.`;
+  $('#port-block').hidden = !hasPorts;
+  $('#pins-block').hidden = hasPorts;
+  $('#pins-reset').hidden = hasPorts;
+  $('#fw-path').textContent = `.pio/build/${ENV_FOR_BOARD[b.id] || b.id}/firmware.bin`;
+
+  const p = c.panel;
+  if (hasPorts) {
+    const sel = $('#panel-port');
+    sel.innerHTML = '';
+    for (const port of b.ports) {
+      const o = document.createElement('option');
+      o.value = port.id;
+      o.textContent = port.label;
+      sel.appendChild(o);
+    }
+    sel.value = p.port;
+  }
+  $('#panel-width').value = p.width;
+  $('#panel-height').value = p.height;
+  $('#panel-chain').value = p.chain;
+  $('#panel-scan').value = p.scan || 'standard';
+  $('#panel-driver').value = p.driver;
+  $('#panel-colorOrder').value = p.colorOrder;
+  $('#panel-i2sSpeed').value = String(p.i2sSpeed);
+  $('#panel-latchBlanking').value = p.latchBlanking;
+  $('#panel-clkPhase').checked = p.clkPhase;
+  for (const k of PIN_NAMES) $('#pin-' + k).value = p.pins[k];
+
+  $('#reboot-banner').hidden = !c.rebootRequired;
+}
+
+function syncOpen(prefix) {
+  const open = $('#' + prefix + '-open').checked;
+  const pw = $('#' + prefix + '-password');
+  pw.disabled = open;
+  if (open) pw.value = '';
+}
+$('#wifi-open').addEventListener('change', () => syncOpen('wifi'));
+$('#portal-open').addEventListener('change', () => syncOpen('portal'));
+
+function syncTransport() {
+  const udp = getRadio('transport') === 'udp';
+  $('#host-field').hidden = udp;
+  $('#discover-btn').disabled = udp;
+  $('#transport-hint').textContent = udp
+    ? 'Listens for broadcasts from the gateway on this port. Any number of devices can listen at once.'
+    : 'Connects to the gateway. A TCP server port allows 3 connections.';
+}
+$$('input[name="transport"]').forEach(r => r.addEventListener('change', syncTransport));
+
+function syncSmoothing() {
+  const v = Number($('#speed-smoothing').value);
+  $('#smoothing-val').textContent = v === 0 ? 'off' : v + ' s';
+}
+$('#speed-smoothing').addEventListener('input', syncSmoothing);
+
+function syncBrightness() {
+  $('#brightness-val').textContent = Math.round($('#display-brightness').value / 2.55) + '%';
+  $('#night-brightness-val').textContent = Math.round($('#night-brightness').value / 2.55) + '%';
+}
+
+function syncNight() {
+  const sched = $('#night-mode').value === 'schedule';
+  $$('.night-sched').forEach(el => { el.hidden = !sched; });
+  updateClockNote();
+}
+
+function updateClockNote() {
+  const note = $('#clock-note');
+  if (!st || !note) return;
+  if (!st.time.valid) {
+    note.textContent = 'The display has no clock yet. It sets the time from GPS (RMC/ZDA in NMEA 0183, PGN 126992 in RAW) or from this page.';
+  } else {
+    const off = Number($('#night-utcOffset').value);
+    const d = new Date((st.time.epoch + off * 60) * 1000);
+    note.textContent = 'Display clock: ' + d.toISOString().substr(11, 5) + ' local' + (st.time.night ? ' · night mode active' : '');
+  }
+}
+
+function sourceLabel(id) {
+  if (!id) return 'Any';
+  if ((id & 0xF0000) === 0x10000) return 'NMEA 2000 #' + (id & 0xFF);
+  if ((id & 0xF0000) === 0x20000) return 'NMEA 0183 ' + String.fromCharCode((id >> 8) & 0xFF, id & 0xFF);
+  return '0x' + id.toString(16);
+}
+
+function fillFilterSelects() {
+  if (!cfg) return;
+  for (const kind of ['stw', 'sog']) {
+    const sel = $('#speed-' + kind + 'Filter');
+    const current = sel.dataset.touched ? Number(sel.value) : cfg.speed[kind + 'Filter'];
+    const ids = new Set([0, current]);
+    if (st) for (const s of st.sources) if (s.kind.toLowerCase() === kind) ids.add(s.id);
+    const key = Array.from(ids).sort((a, b) => a - b).join(',');
+    if (sel.dataset.key === key) continue;
+    sel.dataset.key = key;
+    sel.innerHTML = '';
+    for (const id of Array.from(ids).sort((a, b) => a - b)) {
+      const o = document.createElement('option');
+      o.value = id;
+      o.textContent = id === 0 ? 'Any source' : sourceLabel(id);
+      sel.appendChild(o);
+    }
+    sel.value = String(current);
+  }
+}
+$$('#speed-stwFilter, #speed-sogFilter').forEach(s => s.addEventListener('change', () => { s.dataset.touched = '1'; }));
+
+async function save(partial, okMsg) {
+  try {
+    const r = await api('/api/config', partial);
+    cfg = await api('/api/config');
+    $('#reboot-banner').hidden = !cfg.rebootRequired;
+    toast(okMsg || 'Saved');
+    return r;
+  } catch (e) {
+    toast(e.message, true);
+    return null;
+  }
+}
+
+$('#form-wifi').addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  const ssid = $('#wifi-ssid').value.trim();
+  const open = $('#wifi-open').checked;
+  const pw = $('#wifi-password').value;
+  if (!ssid) return toast('Enter the network name', true);
+  if (!open && pw && pw.length < 8) return toast('Wi-Fi passwords are at least 8 characters', true);
+  const wifi = { ssid };
+  if (open) wifi.open = true;
+  else if (pw) wifi.password = pw;
+  else if (cfg.wifi.open || ssid !== cfg.wifi.ssid) {
+    if (!confirm('No password entered. Is "' + ssid + '" an open network?')) return;
+    wifi.open = true;
+  }
+  await save({ wifi }, 'Saved — joining ' + ssid);
+  fillForms();
+});
+
+$('#form-portal').addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  const open = $('#portal-open').checked;
+  const pw = $('#portal-password').value;
+  if (!open && pw && pw.length < 8) return toast('Password must be at least 8 characters', true);
+  const portal = { apMode: $('#portal-apMode').value, ssid: $('#portal-ssid').value.trim(), hostname: $('#portal-hostname').value.trim() };
+  if (open) portal.open = true;
+  else if (pw) portal.password = pw;
+  else if (cfg.portal.open) return toast('Enter a password, or tick "No password"', true);
+  await save({ portal }, 'Saved — the setup network restarts');
+  fillForms();
+});
+
+$('#form-data').addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  const port = Number($('#data-port').value);
+  if (!(port >= 1 && port <= 65535)) return toast('Port must be 1–65535', true);
+  await save({ data: { transport: getRadio('transport'), protocol: getRadio('protocol'), host: $('#data-host').value.trim(), port } }, 'Saved — reconnecting');
+  clearSniff();
+});
+
+$('#form-speed').addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  await save({
+    speed: {
+      source: $('#speed-source').value,
+      unit: $('#speed-unit').value,
+      decimals: Number($('#speed-decimals').value),
+      smoothing: Number($('#speed-smoothing').value),
+      staleSec: Number($('#speed-staleSec').value),
+      depthUnit: $('#speed-depthUnit').value,
+      stwFilter: Number($('#speed-stwFilter').value),
+      sogFilter: Number($('#speed-sogFilter').value),
+    },
+  });
+  $$('#speed-stwFilter, #speed-sogFilter').forEach(s => { delete s.dataset.touched; });
+});
+$('#form-filter').addEventListener('submit', (ev) => ev.preventDefault());
+
+// Display settings apply live.
+let displayTimer;
+function collectDisplay() {
+  return {
+    display: {
+      brightness: Number($('#display-brightness').value),
+      rotation: Number($('#display-rotation').value),
+      sections: Number(getRadio('sections') || 1),
+      items: [0, 1, 2, 3].map(i => $('#section-item-' + i).value),
+      speedColor: $('#display-speedColor').value,
+      accentColor: $('#display-accentColor').value,
+      showSource: $('#display-showSource').checked,
+      showUnit: $('#display-showUnit').checked,
+      showStatus: $('#display-showStatus').checked,
+      night: {
+        mode: $('#night-mode').value,
+        brightness: Number($('#night-brightness').value),
+        color: $('#night-color').value,
+        start: timeToMinutes($('#night-start').value),
+        end: timeToMinutes($('#night-end').value),
+        utcOffset: Number($('#night-utcOffset').value),
+      },
+    },
+  };
+}
+function queueDisplaySave() {
+  syncBrightness();
+  syncNight();
+  syncLayout();
+  clearTimeout(displayTimer);
+  displayTimer = setTimeout(() => save(collectDisplay(), 'Display updated'), 350);
+}
+$$('#form-display input, #form-display select, #form-night input, #form-night select').forEach(el => {
+  el.addEventListener(el.type === 'range' || el.type === 'color' ? 'input' : 'change', queueDisplaySave);
+});
+$$('#form-layout, #form-display, #form-night').forEach(f => f.addEventListener('submit', ev => ev.preventDefault()));
+$('#tz-btn').addEventListener('click', () => {
+  const off = -new Date().getTimezoneOffset();
+  $('#night-utcOffset').value = String(Math.round(off / 30) * 30);
+  queueDisplaySave();
+});
+
+$('#form-panel').addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  const panel = {
+    width: Number($('#panel-width').value),
+    height: Number($('#panel-height').value),
+    chain: Number($('#panel-chain').value),
+    scan: $('#panel-scan').value,
+    driver: $('#panel-driver').value,
+    colorOrder: $('#panel-colorOrder').value,
+    i2sSpeed: Number($('#panel-i2sSpeed').value),
+    latchBlanking: Number($('#panel-latchBlanking').value),
+    clkPhase: $('#panel-clkPhase').checked,
+  };
+  if (cfg.board.ports.length) {
+    panel.port = $('#panel-port').value;
+  } else {
+    panel.pins = {};
+    for (const k of PIN_NAMES) panel.pins[k] = Number($('#pin-' + k).value);
+  }
+  const r = await save({ panel }, 'Saved — reboot to apply');
+  if (r && !r.changed.panel) toast('Nothing changed');
+});
+$('#pins-reset').addEventListener('click', () => { for (const k of PIN_NAMES) $('#pin-' + k).value = cfg.board.defaultPins[k]; });
+
+// ---------- actions ----------
+document.addEventListener('click', async (ev) => {
+  const btn = ev.target.closest('[data-action]');
+  if (!btn) return;
+  const action = btn.dataset.action;
+  if (action === 'factory-reset' && !confirm('Erase all settings and restart?')) return;
+  if (action === 'reboot' && !confirm('Restart the display?')) return;
+  try {
+    await api('/api/' + action, {});
+    toast({ 'test-pattern': 'Test pattern running', info: 'Showing info on the panel', reboot: 'Restarting…', 'factory-reset': 'Resetting…' }[action]);
+  } catch (e) {
+    toast(e.message, true);
+  }
+});
+
+// ---------- Wi-Fi scan ----------
+$('#scan-btn').addEventListener('click', async () => {
+  const btn = $('#scan-btn');
+  btn.disabled = true;
+  $('#scan-note').textContent = 'Scanning… (the setup network may blink for a moment)';
+  try {
+    await api('/api/scan', {});
+    for (let i = 0; i < 30; i++) {
+      await new Promise(r => setTimeout(r, 700));
+      let r;
+      try { r = await api('/api/scan'); } catch (e) { continue; }
+      if (!r.scanning) { renderNetworks(r); break; }
+    }
+  } catch (e) {
+    toast(e.message, true);
+  }
+  btn.disabled = false;
+  $('#scan-note').textContent = '';
+});
+
+function bars(rssi) { return rssi > -55 ? '▂▄▆█' : rssi > -67 ? '▂▄▆' : rssi > -78 ? '▂▄' : '▂'; }
+function renderNetworks(r) {
+  const list = $('#netlist');
+  const nets = (r.networks || []).slice().sort((a, b) => (b.yachtDevices - a.yachtDevices) || (b.rssi - a.rssi));
+  list.hidden = false;
+  if (r.error || !nets.length) {
+    list.innerHTML = '<div class="hint" style="padding:10px 12px">No networks found. Try again.</div>';
+    return;
+  }
+  list.innerHTML = '';
+  for (const n of nets) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.innerHTML = `<span class="ssid">${escapeHtml(n.ssid)}</span>${n.yachtDevices ? '<span class="tag">YD</span>' : ''}<span class="meta">${n.security === 'open' ? 'open' : '🔒'} · ch ${n.channel} · ${bars(n.rssi)}</span>`;
+    b.addEventListener('click', () => {
+      $('#wifi-ssid').value = n.ssid;
+      $('#wifi-open').checked = n.security === 'open';
+      syncOpen('wifi');
+      if (n.security !== 'open') $('#wifi-password').focus();
+      list.hidden = true;
+    });
+    list.appendChild(b);
+  }
+}
+
+// ---------- discovery ----------
+$('#discover-btn').addEventListener('click', async () => {
+  const btn = $('#discover-btn');
+  const bar = $('#discover-progress');
+  btn.disabled = true;
+  bar.hidden = false;
+  $('#discover-note').textContent = 'Looking for open data ports on the boat network…';
+  try {
+    await api('/api/discover', {});
+    let r;
+    do {
+      await new Promise(res => setTimeout(res, 600));
+      try { r = await api('/api/discover'); } catch (e) { continue; }
+      bar.firstElementChild.style.width = r.progress + '%';
+    } while (!r || r.running);
+    renderDiscovery(r);
+  } catch (e) {
+    $('#discover-note').textContent = '';
+    toast(e.message, true);
+  }
+  btn.disabled = false;
+  bar.hidden = true;
+});
+
+function renderDiscovery(r) {
+  const list = $('#discover-list');
+  list.innerHTML = '';
+  list.hidden = !r.found.length;
+  $('#discover-note').textContent = r.found.length
+    ? 'Tap a result to use it. Port 1456 is the factory default for server #1.'
+    : 'No TCP data ports found. Is a server enabled in the gateway? (UDP servers cannot be found this way.)';
+  for (const f of r.found) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.innerHTML = `<span class="ssid">${escapeHtml(f.ip)}:${f.port}</span><span class="meta">TCP</span>`;
+    b.addEventListener('click', () => {
+      const gw = st && st.wifi.gateway;
+      $('#data-host').value = f.ip === gw ? '' : f.ip;
+      $('#data-port').value = f.port;
+      setRadio('transport', 'tcp');
+      syncTransport();
+      toast('Filled in — press Save & reconnect');
+    });
+    list.appendChild(b);
+  }
+}
+
+// ---------- firmware & import ----------
+$('#fw-file').addEventListener('change', () => { $('#fw-btn').disabled = !$('#fw-file').files.length; });
+$('#fw-btn').addEventListener('click', () => {
+  const file = $('#fw-file').files[0];
+  if (!file) return;
+  const bar = $('#fw-progress');
+  const note = $('#fw-note');
+  bar.hidden = false;
+  $('#fw-btn').disabled = true;
+  const fd = new FormData();
+  fd.append('firmware', file, file.name);
+  const xhr = new XMLHttpRequest();
+  xhr.open('POST', '/api/update');
+  xhr.upload.onprogress = (e) => {
+    if (e.lengthComputable) bar.firstElementChild.style.width = (e.loaded * 100 / e.total).toFixed(0) + '%';
+  };
+  xhr.onload = () => {
+    let r = {};
+    try { r = JSON.parse(xhr.responseText); } catch (e) { /* ignore */ }
+    if (xhr.status === 200 && r.ok) { note.textContent = 'Update installed. Restarting…'; toast('Firmware updated'); }
+    else { note.textContent = 'Update failed: ' + (r.error || xhr.status); toast('Update failed', true); $('#fw-btn').disabled = false; }
+  };
+  xhr.onerror = () => { note.textContent = 'Upload failed — connection lost.'; $('#fw-btn').disabled = false; };
+  note.textContent = 'Uploading… keep this page open.';
+  xhr.send(fd);
+});
+
+$('#import-file').addEventListener('change', async () => {
+  const file = $('#import-file').files[0];
+  if (!file) return;
+  try {
+    const json = JSON.parse(await file.text());
+    delete json.rebootRequired;
+    let note = 'Settings imported';
+    if (json.board && json.board !== cfg.board.id) {
+      delete json.panel;
+      note = 'Imported. Panel settings skipped (from a different board)';
+    }
+    delete json.board;
+    await save(json, note);
+    fillForms();
+  } catch (e) {
+    toast('Import failed: ' + e.message, true);
+  }
+  $('#import-file').value = '';
+});
+
+// ---------- status ----------
+function dotClass(ok, warn) { return ok ? 'ok' : warn ? 'warn' : 'err'; }
+
+function stepsFor(s) {
+  const w = s.wifi, d = s.data;
+  const steps = [];
+  let hint;
+  if (w.connected) hint = `Joined “${w.ssid}” as ${w.ip} (signal ${w.rssi} dBm).`;
+  else if (!w.configured) hint = 'Choose the gateway’s Wi-Fi network on the Wi-Fi tab.';
+  else if (w.state === 'network_not_found') hint = `“${w.ssid}” is not in range. Is the gateway powered and its Wi-Fi in access point mode?`;
+  else if (w.state === 'auth_failed') hint = `“${w.ssid}” rejected the password. Check it on the Wi-Fi tab.`;
+  else hint = `Joining “${w.ssid}”…`;
+  steps.push({ title: 'Join the boat Wi-Fi', state: w.connected ? 'ok' : w.configured ? 'warn' : 'err', hint });
+
+  const udp = d.transport === 'udp';
+  const linked = udp ? d.lastLineAgo >= 0 : d.state === 'connected';
+  if (!w.connected) hint = 'Waiting for Wi-Fi.';
+  else if (linked) hint = udp ? `Receiving UDP broadcasts on port ${d.port} from ${d.remote}.` : `Connected to ${d.remote}:${d.port} over TCP.`;
+  else if (udp) hint = `Listening on UDP port ${d.port}. Nothing heard yet: does a gateway server use UDP on this port?`;
+  else hint = (d.lastError ? d.lastError + '. ' : '') + `Check the address and port on the Data tab. The factory default is TCP 1456 on 192.168.4.1. A TCP server allows only 3 clients.`;
+  steps.push({ title: 'Reach the gateway', state: linked ? 'ok' : w.connected ? 'err' : 'idle', hint });
+
+  const flowing = d.lastLineAgo >= 0 && d.lastLineAgo < 5000;
+  if (flowing) hint = `${d.lineRate} lines/s` + (d.detected ? ` · ${d.detected === 'raw' ? 'RAW (NMEA 2000)' : 'NMEA 0183'}` : '') + (d.badChecksum ? ` · ${d.badChecksum} bad checksums` : '');
+  else if (linked) hint = 'Connected but nothing arrives. Check that the server is enabled and its data protocol is NMEA 0183 or RAW (not Debug or Memory).';
+  else hint = 'Waiting for a connection.';
+  steps.push({ title: 'Receive NMEA data', state: flowing ? 'ok' : linked ? 'err' : 'idle', hint });
+
+  const sp = s.speed;
+  const vals = s.values || {};
+  const have = itemList().filter(it => vals[it.id] && vals[it.id].valid).map(it => it.label);
+  if (have.length) hint = 'Receiving ' + have.join(', ') + '.';
+  else if (flowing) {
+    if (d.detected === 'raw') hint = 'Data arrives, but none of the PGNs the display reads (128259 speed, 129026 GPS speed, 130306 wind, 127250 heading, 128267 depth, 129284 waypoint).';
+    else hint = 'Data arrives, but no sentences the display reads yet (VHW, RMC, VTG, MWV, MWD, HDG, DPT, RMB…). Check the gateway’s NMEA 0183 transmit filters, or switch the server to RAW.';
+  } else hint = 'Waiting for data.';
+  const shown = cfg ? (cfg.display.items || []).slice(0, cfg.display.sections || 1).filter(id => id !== 'none') : [];
+  const missing = shown.filter(id => !(id === 'speed' ? sp.valid : vals[id] && vals[id].valid));
+  if (have.length && missing.length) {
+    hint += ' Nothing yet for ' + missing.map(id => (itemList().find(it => it.id === id) || { label: id }).label || id).join(', ') + ', which the panel shows.';
+  }
+  steps.push({ title: 'Find instrument data', state: have.length && !missing.length ? 'ok' : have.length || flowing ? 'warn' : 'idle', hint });
+  return steps;
+}
+
+function renderStatus(s) {
+  const sp = s.speed;
+  const decimals = cfg && cfg.speed.decimals >= 0 ? cfg.speed.decimals : 1;
+  const dash = decimals === 0 ? '--' : '--.' + '-'.repeat(decimals);
+  const val = sp.valid ? sp.value.toFixed(decimals) : dash;
+  $('#hdr-speed').textContent = val;
+  $('#hdr-unit').textContent = sp.unit;
+  $('#hdr-dot').className = 'dot ' + dotClass(sp.valid, s.data.state === 'connected' || s.data.state === 'listening');
+  $('#hdr-sub').textContent = s.wifi.connected ? s.wifi.ssid + ' · ' + s.wifi.ip : s.wifi.configured ? 'Not joined: ' + s.wifi.ssid : 'Not set up';
+
+  $('#live-value').textContent = val;
+  $('#live-unit').textContent = UNIT_NAMES[sp.unit] || sp.unit;
+  $('#live-kind').textContent = sp.valid ? (sp.kind === 'STW' ? 'SPEED THROUGH WATER' : 'SPEED OVER GROUND') : 'NO SPEED';
+  $('#live-stw').textContent = sp.stw.valid ? sp.stw.value.toFixed(decimals) : '—';
+  $('#live-sog').textContent = sp.sog.valid ? sp.sog.value.toFixed(decimals) : '—';
+
+  const vals = s.values || {};
+  $('#values').innerHTML = itemList().filter(it => vals[it.id]).map(it => {
+    const v = vals[it.id];
+    const unit = ['awa', 'twa'].includes(it.id) ? (Math.abs(v.value) < 0.5 || Math.abs(v.value) >= 179.5 ? 'degrees' : v.value < 0 ? 'port' : 'starboard') : it.id === 'twd' || it.id === 'hdg' ? 'magnetic' : (UNIT_NAMES[v.unit] || v.unit || '').toLowerCase();
+    return `<div class="val${v.valid ? '' : ' off'}"><span class="lbl">${it.label}</span><b>${v.valid ? fmtValue(it.id, v.value) : '—'}</b><small title="${escapeHtml(it.name)}">${escapeHtml(v.valid ? unit || it.name : it.name)}</small></div>`;
+  }).join('');
+
+  $('#steps').innerHTML = stepsFor(s).map(x => `<li><span class="dot ${x.state === 'idle' ? '' : x.state}"></span><div><b>${x.title}</b><div class="hint">${escapeHtml(x.hint)}</div></div></li>`).join('');
+
+  const rows = s.sources.slice().sort((a, b) => a.kind.localeCompare(b.kind) || a.age - b.age);
+  $('#sources').innerHTML = rows.length
+    ? rows.map(r => `<tr><td>${escapeHtml(sourceLabel(r.id))}</td><td>${r.kind}</td><td>${/^\d+$/.test(r.via) ? 'PGN ' + r.via : r.via}</td><td>${fmtValue(r.kind.toLowerCase(), r.value)}${r.unit && !['AWA', 'TWA', 'TWD', 'HDG'].includes(r.kind) ? ' ' + escapeHtml(r.unit.toLowerCase()) : ''}${!r.unit && ['TWD', 'HDG'].includes(r.kind) ? ' true <span class="muted">(no variation yet)</span>' : ''}</td><td>${ago(r.age)}</td><td>${r.count}</td></tr>`).join('')
+    : '<tr><td colspan="6" class="muted">Nothing yet.</td></tr>';
+
+  const d = s.data;
+  const kv = [
+    ['State', d.state.replace('_', ' ')],
+    ['Target', d.transport === 'udp' ? `UDP port ${d.port}` : `${d.host || 'gateway'} → ${d.remote || '?'}:${d.port}`],
+    ['Last error', d.lastError || '—'],
+    ['Detected', d.detected ? (d.detected === 'raw' ? 'RAW (NMEA 2000)' : 'NMEA 0183') : '—'],
+    ['Lines', `${d.lines} (${d.lineRate}/s) · last ${ago(d.lastLineAgo)} ago`],
+    ['Values decoded', d.samples != null ? d.samples : d.speedSamples],
+    ['Bad checksums', d.badChecksum],
+    ['Ignored', d.ignored],
+    ['Connections', d.connects],
+  ];
+  $('#data-kv').innerHTML = kv.map(([k, v]) => `<dt>${k}</dt><dd>${escapeHtml(v)}</dd>`).join('');
+
+  const up = s.uptime;
+  const sys = [
+    ['Board', s.board],
+    ['Firmware', s.fw],
+    ['Device ID', s.deviceId],
+    ['Uptime', `${Math.floor(up / 86400)}d ${Math.floor(up / 3600) % 24}h ${Math.floor(up / 60) % 60}m`],
+    ['Boat Wi-Fi', s.wifi.connected ? `${s.wifi.ssid} · ${s.wifi.ip} · ch ${s.wifi.channel} · ${s.wifi.rssi} dBm` : s.wifi.state.replace(/_/g, ' ')],
+    ['Setup network', s.ap.active ? `${s.ap.ssid} · ${s.ap.ip} · ${s.ap.clients} connected` : 'off'],
+    ['Panel', s.display.panelOk ? `${s.display.width}×${s.display.height}` : 'NOT INITIALISED — check Panel settings'],
+    ['Free memory', `${Math.round(s.heap / 1024)} KB (min ${Math.round(s.minHeap / 1024)} KB) · PSRAM ${Math.round(s.psram / 1048576)} MB`],
+    ['Clock', s.time.valid ? new Date(s.time.epoch * 1000).toISOString().replace('T', ' ').substr(0, 16) + ' UTC' : 'not set'],
+  ];
+  $('#sys-kv').innerHTML = sys.map(([k, v]) => `<dt>${k}</dt><dd>${escapeHtml(v)}</dd>`).join('');
+
+  $('#reboot-banner').hidden = !s.rebootRequired;
+  fillFilterSelects();
+  updateClockNote();
+}
+
+let statusTimer;
+async function pollStatus() {
+  clearTimeout(statusTimer);
+  if (document.hidden) { statusTimer = setTimeout(pollStatus, 2000); return; }
+  try {
+    st = await api('/api/status', undefined, { timeout: 4000 });
+    if (!online) {
+      online = true;
+      $('#offline').hidden = true;
+      try { cfg = await api('/api/config'); fillForms(); } catch (e) { /* next round */ }
+    }
+    renderStatus(st);
+  } catch (e) {
+    online = false;
+    $('#offline').hidden = false;
+  }
+  statusTimer = setTimeout(pollStatus, 1000);
+}
+
+// ---------- LED preview ----------
+let frameTimer;
+async function pollFrame() {
+  clearTimeout(frameTimer);
+  if (activeTab !== 'live' || document.hidden) return;
+  try {
+    const r = await api('/api/frame', undefined, { raw: true, timeout: 3000 });
+    if (r.ok) {
+      const w = Number(r.headers.get('X-Width')), h = Number(r.headers.get('X-Height')), rot = Number(r.headers.get('X-Rotation') || 0);
+      const buf = new DataView(await r.arrayBuffer());
+      if (buf.byteLength >= w * h * 2) drawMatrix(buf, w, h, rot);
+    }
+  } catch (e) { /* offline banner covers it */ }
+  frameTimer = setTimeout(pollFrame, 400);
+}
+
+function drawMatrix(buf, w, h, rot) {
+  const cv = $('#matrix');
+  const lw = rot % 2 ? h : w, lh = rot % 2 ? w : h;
+  const dpr = window.devicePixelRatio || 1;
+  const cssW = cv.clientWidth || 320;
+  const cell = Math.max(2, Math.floor(cssW * dpr / lw));
+  cv.width = cell * lw;
+  cv.height = cell * lh;
+  cv.style.aspectRatio = lw + ' / ' + lh;
+  const ctx = cv.getContext('2d');
+  ctx.fillStyle = '#000';
+  ctx.fillRect(0, 0, cv.width, cv.height);
+  const r = cell * 0.25;  // dot diameter = 50% of pitch
+  for (let ly = 0; ly < lh; ly++) {
+    for (let lx = 0; lx < lw; lx++) {
+      let x = lx, y = ly;
+      if (rot === 1) { x = w - 1 - ly; y = lx; }
+      else if (rot === 2) { x = w - 1 - lx; y = h - 1 - ly; }
+      else if (rot === 3) { x = ly; y = h - 1 - lx; }
+      const v = buf.getUint16((y * w + x) * 2, true);
+      if (v === 0) ctx.fillStyle = '#141414';
+      else ctx.fillStyle = `rgb(${((v >> 11) & 31) * 255 / 31 | 0},${((v >> 5) & 63) * 255 / 63 | 0},${(v & 31) * 255 / 31 | 0})`;
+      ctx.beginPath();
+      ctx.arc(lx * cell + cell / 2, ly * cell + cell / 2, r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+}
+
+// ---------- sniffer ----------
+let sniffSeq = 0;
+let sniffTimer;
+function clearSniff() { $('#sniff').innerHTML = ''; }
+$('#sniff-clear').addEventListener('click', clearSniff);
+$('#sniff-speed').addEventListener('change', () => { clearSniff(); sniffSeq = 0; });
+async function pollSniff() {
+  clearTimeout(sniffTimer);
+  if (activeTab !== 'data' || document.hidden) return;
+  if (!$('#sniff-pause').checked) {
+    try {
+      const r = await api('/api/sniff?since=' + sniffSeq + ($('#sniff-speed').checked ? '&speed=1' : ''));
+      if (r.seq < sniffSeq) sniffSeq = 0;  // device restarted
+      else sniffSeq = r.seq;
+      const box = $('#sniff');
+      const atBottom = box.scrollTop + box.clientHeight >= box.scrollHeight - 8;
+      for (const l of r.lines) {
+        const div = document.createElement('div');
+        if (l.speed) div.className = 'sp';
+        div.textContent = l.text;
+        box.appendChild(div);
+      }
+      while (box.childElementCount > 300) box.firstElementChild.remove();
+      if (atBottom) box.scrollTop = box.scrollHeight;
+    } catch (e) { /* offline */ }
+  }
+  sniffTimer = setTimeout(pollSniff, 1000);
+}
+
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) { pollStatus(); pollFrame(); pollSniff(); }
+});
+
+// ---------- boot ----------
+(async function init() {
+  buildStaticControls();
+  const saved = recall('tab');
+  showTab(saved && $('#tab-' + saved) ? saved : 'live');
+  for (;;) {
+    try { cfg = await api('/api/config'); break; } catch (e) { $('#offline').hidden = false; await new Promise(r => setTimeout(r, 2000)); }
+  }
+  $('#offline').hidden = true;
+  fillForms();
+  pollStatus();
+  // Seed the display clock for the night schedule if the bus has no time.
+  api('/api/time', { epoch: Math.floor(Date.now() / 1000) }).catch(() => {});
+})();
+</script>
+</body>
+</html>
