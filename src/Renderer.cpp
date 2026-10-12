@@ -259,8 +259,8 @@ void Renderer::drawDash(const DashView& v, uint32_t nowMs) {
     y0 = ch * r / rows;
     w = cw * (c + 1) / cols - x0;
     h = ch * (r + 1) / rows - y0;
-    if (c > 0) {
-      x0++;  // the divider
+    if (c > 0) {//except for the first column, leave space to draw a divider line and shrink the cell width by 1 px.
+      x0++;
       w--;
     }
   };
@@ -293,27 +293,31 @@ void Renderer::drawDash(const DashView& v, uint32_t nowMs) {
 // its side so the fonts don't change as the wind crosses the bow.
 const char* Renderer::cellTag(const ItemView& item, bool forSizing) const {
   bool windAngle = itemInfo(item.item).format == ItemFormat::WindAngle;
-  if (forSizing && windAngle) return "P";
+  if (forSizing && windAngle) return "<<";
   char side = item.valid ? itemSide(item.item, item.value) : 0;
-  if (side == 'P') return "P";
-  if (side == 'S') return "S";
+  if (side == 'P') return "<<";
+  if (side == 'S') return ">>";
   return style_.showUnit ? item.unit : "";
 }
 
 // Which parts of one section's label row can use the 5x7 font: the row must
 // fit across the section, and the taller row must not shrink the digits much.
 Renderer::CellFonts Renderer::cellFonts(const ItemView& item, int w, int h) {
-  CellFonts f;
+  CellFonts f;//initializes all to false
   const char* label = style_.showSource ? itemLabel(item) : "";
   const char* tag = cellTag(item, true);
   char text[12];
   formatItem(item.item, item.valid, item.value, style_.decimals, text, sizeof(text), item.shortDistance);
+  //First check if the tall label and tag would take up to much of the cell height If true, return false for both fonts.
   if (!largeLabelsAffordable(text, w - 2, h - kSmallRowH, h - kLargeRowH)) return f;
   // At least a letter's width between label and unit, so they don't read as
   // one word.
-  int room = w - 2;
+  int room = w;
   int gap = *label && *tag ? 4 : 0;
   int largeLabel = labelWidth(label, true), largeTag = labelWidth(tag, true);
+  // check if both the label and tag can fit in the cell width using the large font.
+  // if not then check if the label can fit with the large font and the tag with the small font.
+  // otherwise both the label and tag will be drawn with the small font.
   f.largeUnit = largeLabel + gap + largeTag <= room;
   f.largeLabel = f.largeUnit || largeLabel + gap + labelWidth(tag, false) <= room;
   return f;
@@ -326,18 +330,18 @@ void Renderer::drawCell(const ItemView& item, int x, int y, int w, int h, CellFo
   const int labelH = largeRow ? kLargeRowH : kSmallRowH;
   const int capsBottom = y + labelH - 2;
 
-  if (style_.showSource) drawLabel(itemLabel(item), x + 1, capsBottom, fonts.largeLabel, accentColor());
+  if (style_.showSource) drawLabel(itemLabel(item), x, capsBottom, fonts.largeLabel, accentColor());
 
   const char* tag = cellTag(item, false);
   if (*tag) {
     bool side = itemInfo(item.item).format == ItemFormat::WindAngle && item.valid && itemSide(item.item, item.value);
     int tw = labelWidth(tag, fonts.largeUnit);
-    drawLabel(tag, x + w - tw - 1, capsBottom, fonts.largeUnit, side ? valueColor(item) : accentColor());
+    drawLabel(tag, x + w - tw, capsBottom, fonts.largeUnit, side ? valueColor(item) : accentColor());
   }
 
   char text[12];
   formatItem(item.item, item.valid, item.value, style_.decimals, text, sizeof(text), item.shortDistance);
-  drawNumber(text, x + 1, y + labelH, w - 2, h - labelH, valueColor(item));
+  drawNumber(text, x, y + labelH, w, h - labelH, valueColor(item));
 }
 
 void Renderer::drawSingle(const DashView& dash, uint32_t nowMs) {
@@ -380,10 +384,10 @@ void Renderer::drawSingle(const DashView& dash, uint32_t nowMs) {
     };
     // The 5x7 font where the wider column costs the digits little height.
     int smallW = columnWidth(false), largeW = columnWidth(true);
-    bool large = fitDigits(text, cw - largeW - 2, ch - 2).h * 100 >=
-                 fitDigits(text, cw - smallW - 2, ch - 2).h * (100 - kMaxDigitLossPercent);
-    int colX = cw - (large ? largeW : smallW) - 1;
-    drawNumber(text, 0, 1, colX - 1, ch - 2, digitColor);
+    bool large = fitDigits(text, cw - largeW - 1, ch).h * 100 >=
+                 fitDigits(text, cw - smallW - 1, ch).h * (100 - kMaxDigitLossPercent);
+    int colX = cw - (large ? largeW : smallW);
+    drawNumber(text, 0, 0, colX - 1, ch, digitColor);
     if (style_.showStatus) {
       canvas_->fillRect(cw - 7, 1, 3, 3, wifiDot);
       canvas_->fillRect(cw - 3, 1, 3, 3, dataDot);
@@ -391,7 +395,7 @@ void Renderer::drawSingle(const DashView& dash, uint32_t nowMs) {
     if (showLabel && (v.valid || v.item != Item::Speed)) {
       drawLabel(label, colX, style_.showStatus ? (large ? 12 : 10) : (large ? 7 : 5), large, accentColor());
     }
-    if (showUnit) drawLabel(unit, colX, ch - 3, large, unitColor);
+    if (showUnit) drawLabel(unit, colX, ch - 2, large, unitColor);
     canvas_->setFont(nullptr);
     return;
   }
@@ -412,7 +416,7 @@ void Renderer::drawSingle(const DashView& dash, uint32_t nowMs) {
     canvas_->fillRect(cw - 4, 2, 3, 3, dataDot);
   }
 
-  drawNumber(text, 1, y0, cw - 2, y1 - y0, digitColor);
+  drawNumber(text, 0, y0, cw - 1, y1 - y0, digitColor);
 
   if (dash.message.length()) {
     drawTicker(dash.message.c_str(), ch - 8, dash.messageIsError ? errColor() : warnColor(), nowMs);
