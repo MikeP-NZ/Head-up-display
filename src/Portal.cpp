@@ -358,7 +358,7 @@ class TagScanner {
     memcpy(buf_ + tailLen_, data, len);
     size_t n = tailLen_ + len;
     for (size_t i = 0; i + kPrefixLen <= n; i++) {
-      if (buf_[i] != 'S' || memcmp(buf_ + i, kPrefix, kPrefixLen) != 0) continue;
+      if (buf_[i] != kPrefix[0] || memcmp(buf_ + i, kPrefix, kPrefixLen) != 0) continue;
       size_t j = i + kPrefixLen;
       String id;
       while (j < n && id.length() < 32 && (isalnum(buf_[j]) || buf_[j] == '-')) id += static_cast<char>(buf_[j++]);
