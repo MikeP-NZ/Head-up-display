@@ -116,6 +116,19 @@ and the display refuses images built for another board. Your computer must be
 on the same network as the display (the boat network, or the display's setup
 network at `192.168.71.1`).
 
+- **Wi-Fi environments:** every board has a second environment ending in
+  `_ota` (`waveshare_s3_matrix_ota`, `huidu_hd_wf4_ota`, `matrixportal_s3_ota`)
+  that builds the same firmware and uploads it over Wi-Fi to `custom_ota_host`
+  (default `headup.local`). In VS Code, switch between USB and Wi-Fi by picking
+  the environment in the status bar or the PlatformIO sidebar, then **Upload**:
+
+  ```bash
+  pio run -e huidu_hd_wf4 -t upload       # USB
+  pio run -e huidu_hd_wf4_ota -t upload   # Wi-Fi
+  ```
+
+  The two environments build separately, so the first build of each takes the
+  full time.
 - **One upload over Wi-Fi:** give the display's address as the upload port:
 
   ```bash
