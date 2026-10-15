@@ -55,9 +55,9 @@ float metresPer(DistanceUnit u) {
 
 const char* distanceLabel(DistanceUnit u) {
   switch (u) {
-    case DistanceUnit::Kilometers: return "km";
-    case DistanceUnit::Miles: return "mi";
-    default: return "nm";
+    case DistanceUnit::Kilometers: return "KM";
+    case DistanceUnit::Miles: return "MI";
+    default: return "NM";
   }
 }
 
@@ -71,9 +71,9 @@ float metresPer(ShortDistanceUnit u) {
 
 const char* shortDistanceLabel(ShortDistanceUnit u) {
   switch (u) {
-    case ShortDistanceUnit::Yards: return "yd";
-    case ShortDistanceUnit::Feet: return "ft";
-    default: return "m";
+    case ShortDistanceUnit::Yards: return "YD";
+    case ShortDistanceUnit::Feet: return "FT";
+    default: return "M";
   }
 }
 
@@ -178,7 +178,7 @@ const char* itemUnit(Item item, const DisplayUnits& units) {
     case ItemFormat::Speed: return unitLabel(units.speed);
     case ItemFormat::Bearing: return units.bearing == BearingRef::True ? "oT" : "oM";
     case ItemFormat::Distance: return distanceLabel(units.distance);
-    case ItemFormat::Depth: return units.depth == DepthUnit::Feet ? "ft" : "m";
+    case ItemFormat::Depth: return units.depth == DepthUnit::Feet ? "FT" : "M";
     case ItemFormat::Temperature: return units.temperature == TempUnit::Fahrenheit ? "oF" : "oC";
     default: return "";
   }
