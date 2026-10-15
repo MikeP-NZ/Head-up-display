@@ -521,10 +521,10 @@ code { font-family: var(--mono); font-size: 12.5px; background: var(--panel-2); 
         <label class="field"><span>Scan rate</span>
           <select id="panel-scan">
             <option value="standard">Standard (1/16 on 32 px, 1/32 on 64 px)</option>
-            <option value="four">1/8 scan (32 px high)</option>
-            <option value="four-alt">1/8 scan, alternate row order</option>
+            <option value="four">1/8 scan (32 px high), or 1/16 on 64 px SM16380</option>
+            <option value="four-alt">Same, alternate row order</option>
           </select>
-          <div class="hint">Usually printed on the panel's back, e.g. P4-64x32-8S = 1/8. Rows doubled or in blocks? Try the alternate order.</div>
+          <div class="hint">Usually printed on the panel's back, e.g. P4-64x32-8S = 1/8. Rows doubled or in blocks? Try the alternate order. SM16380 panels: 16 driver chips per colour on 64x64 means 1/16.</div>
         </label>
         <label class="field"><span>Driver chip</span>
           <select id="panel-driver">
@@ -534,8 +534,20 @@ code { font-family: var(--mono); font-size: 12.5px; background: var(--panel-2); 
             <option value="ICN2038S">ICN2038S</option>
             <option value="MBI5124">MBI5124</option>
             <option value="DP3246">DP3246</option>
+            <option value="SM16380">SM16380SF / SC (S-PWM, e.g. with RUC7258D)</option>
           </select>
-          <div class="hint">Blank or garbled panel? Try FM6126A, then Generic.</div>
+          <div class="hint">Blank or garbled panel? Try FM6126A, then Generic. Panels with SM16380 chips need SM16380.</div>
+        </label>
+        <label class="field" data-spwm hidden><span>SM16380 register set</span>
+          <select id="panel-spwmProfile">
+            <option value="0">Captured settings</option>
+            <option value="1">REG1 only</option>
+          </select>
+          <div class="hint">Configuration sent to the driver chips. Ghosting or odd colours? Try REG1 only.</div>
+        </label>
+        <label class="field" data-spwm hidden><span>SM16380 grey levels</span>
+          <select id="panel-spwmGrayBits"><option value="16">16 bit</option><option value="14">14 bit</option></select>
+          <div class="hint">Try 14 bit if bright colours look dark or wrong.</div>
         </label>
         <label class="field"><span>Colour order</span>
           <select id="panel-colorOrder">
@@ -544,14 +556,15 @@ code { font-family: var(--mono); font-size: 12.5px; background: var(--panel-2); 
           <div class="hint">If the test pattern's RED shows another colour, change this.</div>
         </label>
         <label class="field"><span>Clock speed</span>
-          <select id="panel-i2sSpeed"><option value="8">8 MHz</option><option value="16">16 MHz</option><option value="20">20 MHz</option></select>
+          <select id="panel-i2sSpeed"><option value="2">2.5 MHz (SM16380 only)</option><option value="5">5 MHz (SM16380 only)</option><option value="8">8 MHz</option><option value="16">16 MHz</option><option value="20">20 MHz</option></select>
           <div class="hint">Lower it if you see ghosting or sparkles.</div>
         </label>
-        <label class="field"><span>Latch blanking</span><input type="number" id="panel-latchBlanking" min="1" max="4"></label>
+        <label class="field" data-hub75><span>Latch blanking</span><input type="number" id="panel-latchBlanking" min="1" max="4"></label>
         <div>
           <span class="field-label">Clock phase</span>
           <label class="check"><input type="checkbox" id="panel-clkPhase"> Clock data on the rising edge</label>
           <div class="hint" id="clk-hint"></div>
+          <div class="hint" data-spwm hidden>SM16380 panels need this unticked: ticked gives vertical ghosting and white blocks of columns.</div>
         </div>
       </div>
       <div id="port-block" hidden>
@@ -873,6 +886,9 @@ function fillForms() {
   $('#panel-chain').value = p.chain;
   $('#panel-scan').value = p.scan || 'standard';
   $('#panel-driver').value = p.driver;
+  $('#panel-spwmProfile').value = String(p.spwmProfile ?? 0);
+  $('#panel-spwmGrayBits').value = String(p.spwmGrayBits ?? 16);
+  syncDriverFields();
   $('#panel-colorOrder').value = p.colorOrder;
   $('#panel-i2sSpeed').value = String(p.i2sSpeed);
   $('#panel-latchBlanking').value = p.latchBlanking;
@@ -1087,6 +1103,8 @@ $('#form-panel').addEventListener('submit', async (ev) => {
     i2sSpeed: Number($('#panel-i2sSpeed').value),
     latchBlanking: Number($('#panel-latchBlanking').value),
     clkPhase: $('#panel-clkPhase').checked,
+    spwmProfile: Number($('#panel-spwmProfile').value),
+    spwmGrayBits: Number($('#panel-spwmGrayBits').value),
   };
   if (cfg.board.ports.length) {
     panel.port = $('#panel-port').value;
@@ -1096,6 +1114,16 @@ $('#form-panel').addEventListener('submit', async (ev) => {
   }
   const r = await save({ panel }, 'Saved — reboot to apply');
   if (r && !r.changed.panel) toast('Nothing changed');
+});
+function syncDriverFields() {
+  const spwm = $('#panel-driver').value === 'SM16380';
+  for (const el of document.querySelectorAll('[data-spwm]')) el.hidden = !spwm;
+  for (const el of document.querySelectorAll('[data-hub75]')) el.hidden = spwm;
+}
+$('#panel-driver').addEventListener('change', () => {
+  // SM16380 panels only work with data clocked on the falling edge.
+  if ($('#panel-driver').value === 'SM16380') $('#panel-clkPhase').checked = false;
+  syncDriverFields();
 });
 $('#pins-reset').addEventListener('click', () => { for (const k of PIN_NAMES) $('#pin-' + k).value = cfg.board.defaultPins[k]; });
 

@@ -6,15 +6,16 @@
 #include "Settings.h"
 
 class MatrixPanel_I2S_DMA;
+class Sm16380Panel;
 
-// The HUB75 panel: owns the DMA driver and copies changed pixels from the
-// renderer's canvas to it.
+// The HUB75 panel: owns the DMA driver (or the SM16380 S-PWM output) and
+// copies changed pixels from the renderer's canvas to it.
 class Display {
  public:
   bool begin(const Settings& s);
   void applySettings(const Settings& s);
   void setNight(bool night);
-  bool panelOk() const { return matrix_ != nullptr; }
+  bool panelOk() const { return matrix_ != nullptr || spwm_ != nullptr; }
 
   Renderer& renderer() { return *renderer_; }
   const Renderer& renderer() const { return *renderer_; }
@@ -24,8 +25,10 @@ class Display {
  private:
   void applyBrightness();
   void mapPixel(uint16_t x, uint16_t y, int16_t& px, int16_t& py) const;
+  bool beginSm16380(const Settings& s, const PanelPins& pins);
 
   MatrixPanel_I2S_DMA* matrix_ = nullptr;
+  Sm16380Panel* spwm_ = nullptr;
   Renderer* renderer_ = nullptr;
   uint16_t* shadow_ = nullptr;
   bool fullRefresh_ = true;
