@@ -161,7 +161,7 @@ code { font-family: var(--mono); font-size: 12.5px; background: var(--panel-2); 
 <header>
   <div class="bar">
     <div class="brand">Head-Up Display<small id="hdr-sub">connecting…</small></div>
-    <div class="pill" aria-live="polite"><span class="dot" id="hdr-dot"></span><b id="hdr-speed">--.-</b><span id="hdr-unit">KN</span></div>
+    <div class="pill" aria-live="polite"><span class="dot" id="hdr-dot"></span><b id="hdr-speed">--.-</b><span id="hdr-unit">kn</span></div>
   </div>
   <nav role="tablist" aria-label="Sections">
     <button role="tab" data-tab="live" aria-selected="true">Live</button>
@@ -626,8 +626,12 @@ code { font-family: var(--mono); font-size: 12.5px; background: var(--panel-2); 
 'use strict';
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => Array.from(el.querySelectorAll(s));
+// The firmware sends the panel's unit labels (capitals, "o" for a degree
+// sign); the portal shows unit names and standard symbols instead.
 const UNIT_NAMES = { KN: 'knots', 'KM/H': 'km/h', MPH: 'mph', 'M/S': 'm/s', NM: 'nautical miles', KM: 'kilometres', MI: 'miles',
-                     M: 'metres', YD: 'yards', FT: 'feet', MAG: 'magnetic', TRUE: 'true', C: '°C', F: '°F' };
+                     M: 'metres', YD: 'yards', FT: 'feet', oM: 'magnetic', oT: 'true', oC: '°C', oF: '°F' };
+const UNIT_SYMBOLS = { KN: 'kn', 'KM/H': 'km/h', MPH: 'mph', 'M/S': 'm/s', NM: 'NM', KM: 'km', MI: 'mi',
+                       M: 'm', YD: 'yd', FT: 'ft', oM: '°M', oT: '°T', oC: '°C', oF: '°F' };
 const BEARING_IDS = ['twd', 'hdg', 'btw', 'cog'];
 const SHORT_UNITS = ['M', 'YD', 'FT'];
 const PIN_NAMES = ['r1', 'g1', 'b1', 'r2', 'g2', 'b2', 'a', 'b', 'c', 'd', 'e', 'lat', 'oe', 'clk'];
@@ -1332,7 +1336,7 @@ function renderStatus(s) {
   const dash = decimals === 0 ? '--' : '--.' + '-'.repeat(decimals);
   const val = sp.valid ? sp.value.toFixed(decimals) : dash;
   $('#hdr-speed').textContent = val;
-  $('#hdr-unit').textContent = sp.unit;
+  $('#hdr-unit').textContent = UNIT_SYMBOLS[sp.unit] || sp.unit;
   $('#hdr-dot').className = 'dot ' + dotClass(sp.valid, s.data.state === 'connected' || s.data.state === 'listening');
   $('#hdr-sub').textContent = s.wifi.connected ? s.wifi.ssid + ' · ' + s.wifi.ip : s.wifi.configured ? 'Not joined: ' + s.wifi.ssid : 'Not set up';
 
@@ -1345,7 +1349,7 @@ function renderStatus(s) {
   const vals = s.values || {};
   $('#values').innerHTML = itemList().filter(it => vals[it.id]).map(it => {
     const v = vals[it.id];
-    const unit = ['awa', 'twa'].includes(it.id) ? (Math.abs(v.value) < 0.5 || Math.abs(v.value) >= 179.5 ? 'degrees' : v.value < 0 ? 'port' : 'starboard') : (UNIT_NAMES[v.unit] || v.unit || '').toLowerCase();
+    const unit = ['awa', 'twa'].includes(it.id) ? (Math.abs(v.value) < 0.5 || Math.abs(v.value) >= 179.5 ? 'degrees' : v.value < 0 ? 'port' : 'starboard') : UNIT_NAMES[v.unit] || v.unit || '';
     return `<div class="val${v.valid ? '' : ' off'}"><span class="lbl">${it.label}</span><b>${v.valid ? fmtValue(it.id, v.value, v.unit) : '—'}</b><small title="${escapeHtml(it.name)}">${escapeHtml(v.valid ? unit || it.name : it.name)}</small></div>`;
   }).join('');
 
@@ -1353,7 +1357,7 @@ function renderStatus(s) {
 
   const rows = s.sources.slice().sort((a, b) => a.kind.localeCompare(b.kind) || a.age - b.age);
   $('#sources').innerHTML = rows.length
-    ? rows.map(r => `<tr><td>${escapeHtml(sourceLabel(r.id))}</td><td>${r.kind}</td><td>${/^\d+$/.test(r.via) ? 'PGN ' + r.via : r.via}</td><td>${fmtValue(r.kind.toLowerCase(), r.value, r.unit)}${!r.unit ? '' : BEARING_IDS.includes(r.kind.toLowerCase()) ? ' ' + UNIT_NAMES[r.unit] : ' ' + escapeHtml(r.unit.toLowerCase())}</td><td>${ago(r.age)}</td><td>${r.count}</td></tr>`).join('')
+    ? rows.map(r => `<tr><td>${escapeHtml(sourceLabel(r.id))}</td><td>${r.kind}</td><td>${/^\d+$/.test(r.via) ? 'PGN ' + r.via : r.via}</td><td>${fmtValue(r.kind.toLowerCase(), r.value, r.unit)}${!r.unit ? '' : BEARING_IDS.includes(r.kind.toLowerCase()) ? ' ' + UNIT_NAMES[r.unit] : ' ' + escapeHtml(UNIT_SYMBOLS[r.unit] || r.unit)}</td><td>${ago(r.age)}</td><td>${r.count}</td></tr>`).join('')
     : '<tr><td colspan="6" class="muted">Nothing yet.</td></tr>';
 
   const d = s.data;

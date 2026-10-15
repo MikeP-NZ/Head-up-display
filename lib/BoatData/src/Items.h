@@ -88,7 +88,8 @@ struct DisplayValue {
 // m/yd/ft, m/ft, C/F). Wind angles keep their sign: negative is port.
 DisplayValue itemDisplay(Item item, float value, const DisplayUnits& units);
 
-// Unit text for the panel: "KN", "NM", "M", "FT", "MAG", "TRUE", "C", "F"; wind angles
+// Unit text for the panel, in capitals except the lower-case "o" that stands
+// for a degree sign: "KN", "NM", "M", "FT", "oM", "oT", "oC", "oF"; wind angles
 // return "" (the side is shown instead). Distances give the long unit; a
 // short distance's unit comes from itemDisplay().
 const char* itemUnit(Item item, const DisplayUnits& units);

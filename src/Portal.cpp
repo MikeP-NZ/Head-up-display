@@ -225,7 +225,7 @@ void handleStatus() {
     o["via"] = src.via;
     // Bearings as they were received; everything else in display units.
     valueJson(o, itemForQuantity(src.q), src.lastValue, units);
-    if (isBearing(src.q)) o["unit"] = isTrueBearing(src.q) ? "TRUE" : "MAG";
+    if (isBearing(src.q)) o["unit"] = isTrueBearing(src.q) ? "oT" : "oM";
     o["age"] = max<int32_t>(0, static_cast<int32_t>(now - src.lastMs));
     o["count"] = src.count;
   }

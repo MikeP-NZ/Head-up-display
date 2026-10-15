@@ -658,13 +658,13 @@ static void test_item_formatting() {
   u.depth = DepthUnit::Feet;
   TEST_ASSERT_FLOAT_WITHIN(0.01f, 32.81f, itemDisplay(Item::Dpt, 10.0f, u).value);
   TEST_ASSERT_EQUAL_STRING("FT", itemUnit(Item::Dpt, u));
-  TEST_ASSERT_EQUAL_STRING("MAG", itemUnit(Item::Btw, u));
+  TEST_ASSERT_EQUAL_STRING("oM", itemUnit(Item::Btw, u));
   u.bearing = BearingRef::True;
-  TEST_ASSERT_EQUAL_STRING("TRUE", itemUnit(Item::Hdg, u));
-  TEST_ASSERT_EQUAL_STRING("C", itemUnit(Item::Mtw, u));
+  TEST_ASSERT_EQUAL_STRING("oT", itemUnit(Item::Hdg, u));
+  TEST_ASSERT_EQUAL_STRING("oC", itemUnit(Item::Mtw, u));
   TEST_ASSERT_FLOAT_WITHIN(0.01f, 18.4f, itemDisplay(Item::Mtw, 18.4f, u).value);
   u.temperature = TempUnit::Fahrenheit;
-  TEST_ASSERT_EQUAL_STRING("F", itemUnit(Item::Mtw, u));
+  TEST_ASSERT_EQUAL_STRING("oF", itemUnit(Item::Mtw, u));
   TEST_ASSERT_FLOAT_WITHIN(0.01f, 65.12f, itemDisplay(Item::Mtw, 18.4f, u).value);
 }
 
