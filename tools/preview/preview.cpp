@@ -41,7 +41,6 @@ int main(int argc, char** argv) {
   style.nightRgb = strtoul(str("nightcolor", "FF0000").c_str(), nullptr, 16);
   style.showSource = num("showsource", 1) != 0;
   style.showUnit = num("showunit", 1) != 0;
-  style.showStatus = num("showstatus", 1) != 0;
   std::string unit = str("unit", "kn"), dist = str("distunit", "nm"), shortDist = str("shortdistunit", "off");
   DisplayUnits units;
   units.depth = str("depthunit", "m") == "ft" ? DepthUnit::Feet : DepthUnit::Meters;
@@ -74,8 +73,6 @@ int main(int argc, char** argv) {
 
   if (screen == "speed" || screen == "dash") {
     DashView v;
-    v.wifiUp = num("wifi", 1) != 0;
-    v.linkUp = num("link", 1) != 0;
     v.message = str("msg", "").c_str();
     v.messageIsError = num("err", 0) != 0;
     v.simulated = num("simulated", 0) != 0;

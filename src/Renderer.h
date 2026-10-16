@@ -20,8 +20,6 @@ struct ItemView {
 struct DashView {
   uint8_t sections = 1;  // 1, 2 or 4
   ItemView items[kMaxSections];
-  bool wifiUp = false;
-  bool linkUp = false;
   // Problem text. Shown on the full-screen layout (with the first item), so
   // a multi-section layout falls back to it while there is a message.
   String message;
@@ -46,7 +44,6 @@ struct RenderStyle {
   uint32_t nightRgb = 0xFF0000;
   bool showSource = true;  // item label (STW/SOG, AWA, ...)
   bool showUnit = true;
-  bool showStatus = true;
   int8_t decimals = -1;
   uint8_t rotation = 0;
 };
@@ -78,7 +75,6 @@ class Renderer {
   uint16_t accentColor() const;
   uint16_t dimColor() const;
   uint16_t warnColor() const;
-  uint16_t okColor() const;
   uint16_t errColor() const;
   void drawSingle(const DashView& v, uint32_t nowMs);
   void drawSections(const DashView& v);

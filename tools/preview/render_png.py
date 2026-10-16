@@ -24,7 +24,7 @@ SCENARIOS = [
     ("speed_two_decimals", ["speed", "value=7.45", "decimals=2"]),
     ("speed_night", ["speed", "value=5.8", "night=1"]),
     ("no_data", ["speed", "valid=0", "msg=NO DATA"]),
-    ("no_wifi", ["speed", "valid=0", "wifi=0", "link=0", "err=1", "msg=NO WIFI YDWG  SETUP: HeadUp-1A2B 192.168.71.1", "now=1200"]),
+    ("no_wifi", ["speed", "valid=0", "err=1", "msg=NO WIFI YDWG  SETUP: HeadUp-1A2B 192.168.71.1", "now=1200"]),
     ("setup", ["info", "setup=1"]),
     ("info_boat", ["info", "page=1"]),
     ("test_bars", ["test", "t=7000"]),

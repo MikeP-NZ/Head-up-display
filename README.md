@@ -248,8 +248,6 @@ switches to the full-screen layout with a scrolling problem description.
 - **Big digits**: the value. The digit slots stay fixed, so 9.9 → 10.0 doesn't
   change the digit size.
 - **Top left**: the label (`STW`/`SOG` for *Boat speed*, whichever is shown).
-- **Top right**: two status dots, Wi-Fi then data. Green means OK, amber means
-  connected but no value yet, red means down.
 - **Bottom line**: the unit (`PORT`/`STBD` for wind angles), or a scrolling
   problem description (`NO WIFI …`, `NO LINK …`, `NO DATA`, `NO SPEED DATA`,
   `NO AWA DATA` …).

@@ -484,9 +484,7 @@ code { font-family: var(--mono); font-size: 12.5px; background: var(--panel-2); 
       <div class="row" style="margin-top:12px; gap:18px">
         <label class="check"><input type="checkbox" id="display-showSource"> Labels (STW, AWA…)</label>
         <label class="check"><input type="checkbox" id="display-showUnit"> Unit</label>
-        <label class="check"><input type="checkbox" id="display-showStatus"> Status dots</label>
       </div>
-      <div class="hint">Status dots, top right of the 1-section layout: Wi-Fi, then data. Green is good, amber means connected with no value yet, red means down.</div>
     </form>
 
     <form class="card" id="form-night">
@@ -887,7 +885,6 @@ function fillForms() {
   $('#display-accentColor').value = d.accentColor;
   $('#display-showSource').checked = d.showSource;
   $('#display-showUnit').checked = d.showUnit;
-  $('#display-showStatus').checked = d.showStatus;
   $('#night-mode').value = d.night.mode;
   $('#night-brightness').value = d.night.brightness;
   $('#night-color').value = d.night.color;
@@ -1102,7 +1099,6 @@ function collectDisplay() {
       accentColor: $('#display-accentColor').value,
       showSource: $('#display-showSource').checked,
       showUnit: $('#display-showUnit').checked,
-      showStatus: $('#display-showStatus').checked,
       night: {
         mode: $('#night-mode').value,
         brightness: Number($('#night-brightness').value),

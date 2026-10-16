@@ -42,7 +42,7 @@ DEFAULTS = {
               "distanceUnit": "nm", "shortDistanceUnit": "off", "bearingRef": "mag"},
     "display": {
         "brightness": 160, "speedColor": "#ffffff", "accentColor": "#00a0ff", "showSource": True, "showUnit": True,
-        "showStatus": True, "rotation": 0, "sections": 1, "items": ["speed", "aws", "awa", "dpt"],
+        "rotation": 0, "sections": 1, "items": ["speed", "aws", "awa", "dpt"],
         "night": {"mode": "off", "brightness": 24, "color": "#ff0000", "start": 1200, "end": 360, "utcOffset": 0},
     },
     "panel": {
@@ -215,7 +215,7 @@ class Device:
             "distunit=" + c["speed"]["distanceUnit"], "shortdistunit=" + c["speed"]["shortDistanceUnit"],
             "bearingref=" + c["speed"]["bearingRef"],
             "color=" + d["speedColor"][1:], "accent=" + d["accentColor"][1:], "nightcolor=" + d["night"]["color"][1:],
-            "showsource=%d" % d["showSource"], "showunit=%d" % d["showUnit"], "showstatus=%d" % d["showStatus"],
+            "showsource=%d" % d["showSource"], "showunit=%d" % d["showUnit"],
             "unit=" + c["speed"]["unit"], "decimals=%d" % c["speed"]["decimals"], "rotation=%d" % d["rotation"],
             "night=%d" % (d["night"]["mode"] == "on"), "now=%d" % int((time.time() - self.boot) * 1000),
         ]

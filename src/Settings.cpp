@@ -237,7 +237,6 @@ void settingsToJson(const Settings& s, JsonObject root, bool includeSecrets) {
   display["accentColor"] = colorToHex(s.accentColor);
   display["showSource"] = s.showSource;
   display["showUnit"] = s.showUnit;
-  display["showStatus"] = s.showStatus;
   display["rotation"] = s.rotation;
   display["sections"] = s.sections;
   JsonArray items = display["items"].to<JsonArray>();
@@ -320,7 +319,6 @@ bool settingsMergeJson(Settings& s, JsonObjectConst root, SettingsChanges& chang
     m.color(o, "accentColor", n.accentColor);
     m.boolean(o, "showSource", n.showSource);
     m.boolean(o, "showUnit", n.showUnit);
-    m.boolean(o, "showStatus", n.showStatus);
     m.num(o, "rotation", n.rotation, 0, 3);
     m.num(o, "sections", n.sections, 1, 4);
     if (n.sections == 3) m.fail("sections", "must be 1, 2 or 4");

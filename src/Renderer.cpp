@@ -98,7 +98,6 @@ uint16_t Renderer::speedColor() const { return rgb565(night_ ? style_.nightRgb :
 uint16_t Renderer::accentColor() const { return rgb565(night_ ? scaleRgb(style_.nightRgb, 70) : style_.accentRgb); }
 uint16_t Renderer::dimColor() const { return rgb565(scaleRgb(night_ ? style_.nightRgb : style_.speedRgb, 30)); }
 uint16_t Renderer::warnColor() const { return rgb565(night_ ? style_.nightRgb : 0xFFA000); }
-uint16_t Renderer::okColor() const { return rgb565(night_ ? scaleRgb(style_.nightRgb, 50) : 0x00C000); }
 uint16_t Renderer::errColor() const { return rgb565(night_ ? style_.nightRgb : 0xFF2000); }
 
 const uint16_t* Renderer::frame() const { return canvas_->getBuffer(); }
@@ -376,8 +375,6 @@ void Renderer::drawSingle(const DashView& dash, uint32_t nowMs) {
   char text[12];
   formatItem(v.item, v.valid, v.value, style_.decimals, text, sizeof(text), v.shortDistance);
   uint16_t digitColor = valueColor(v);
-  uint16_t wifiDot = dash.wifiUp ? okColor() : errColor();
-  uint16_t dataDot = v.valid ? okColor() : dash.linkUp ? warnColor() : errColor();
 
   // Wind angles show the side where other items show their unit.
   char side = v.valid ? itemSide(v.item, v.value) : 0;
@@ -388,7 +385,7 @@ void Renderer::drawSingle(const DashView& dash, uint32_t nowMs) {
   uint16_t unitColor = side ? digitColor : accentColor();
   const char* label = itemLabel(v);
   bool showLabel = style_.showSource && *label;
-  bool labels = showLabel || showUnit || style_.showStatus;
+  bool labels = showLabel || showUnit;
 
   // Short panels (64x32): label rows above and below would halve the digits,
   // so put the labels in a narrow column on the right instead.
@@ -400,7 +397,6 @@ void Renderer::drawSingle(const DashView& dash, uint32_t nowMs) {
       int colW = 0;
       if (showUnit) colW = max(colW, labelWidth(sizingUnit, large));
       if (showLabel) colW = max(colW, labelWidth(label, large));
-      if (style_.showStatus) colW = max(colW, 7);
       return colW;
     };
     // The 5x7 font where the wider column costs the digits little height.
@@ -409,19 +405,15 @@ void Renderer::drawSingle(const DashView& dash, uint32_t nowMs) {
                  fitDigits(text, cw - smallW - 1, ch).h * (100 - kMaxDigitLossPercent);
     int colX = cw - (large ? largeW : smallW);
     drawNumber(text, 0, 0, colX - 1, ch, digitColor);
-    if (style_.showStatus) {
-      canvas_->fillRect(cw - 7, 1, 3, 3, wifiDot);
-      canvas_->fillRect(cw - 3, 1, 3, 3, dataDot);
-    }
     if (showLabel && (v.valid || v.item != Item::Speed)) {
-      drawLabel(label, colX, style_.showStatus ? (large ? 12 : 10) : (large ? 7 : 5), large, accentColor());
+      drawLabel(label, colX, large ? 7 : 5, large, accentColor());
     }
     if (showUnit) drawLabel(unit, colX, ch - 2, large, unitColor);
     canvas_->setFont(nullptr);
     return;
   }
 
-  bool top = showLabel || style_.showStatus;
+  bool top = showLabel;
   bool bottom = showUnit || dash.message.length() > 0;
   int y0 = top ? 9 : 1;
   int y1 = bottom ? ch - 9 : ch - 1;
@@ -431,10 +423,6 @@ void Renderer::drawSingle(const DashView& dash, uint32_t nowMs) {
     canvas_->setTextColor(accentColor());
     canvas_->setCursor(1, 0);
     canvas_->print(label);
-  }
-  if (style_.showStatus) {
-    canvas_->fillRect(cw - 8, 2, 3, 3, wifiDot);
-    canvas_->fillRect(cw - 4, 2, 3, 3, dataDot);
   }
 
   drawNumber(text, 0, y0, cw - 1, y1 - y0, digitColor);

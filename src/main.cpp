@@ -167,8 +167,6 @@ void renderFrame() {
     for (size_t i = 0; i < s.sections; i++) fillItem(v.items[i], app.link.model(), now);
     app.link.unlock();
     for (size_t i = 0; i < s.sections; i++) valuesShown |= v.items[i].valid;
-    v.wifiUp = app.wifi.staConnected();
-    v.linkUp = app.link.linkUp();
     v.message = connectionMessage(v.messageIsError);
     v.simulated = app.link.demo();
     // Full-screen layout: name what is missing. Multi-section layouts show

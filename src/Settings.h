@@ -59,7 +59,6 @@ struct Settings {
   uint32_t accentColor = 0x00A0FF;
   bool showSource = true;
   bool showUnit = true;
-  bool showStatus = true;
   uint8_t rotation = 0;  // quarter turns
   // Layout: 1, 2 or 4 sections, each showing one item. Portrait or
   // landscape follows the rotation.
