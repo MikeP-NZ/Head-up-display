@@ -34,7 +34,7 @@ UNITS = {"kn": ("KN", 1.943844), "kmh": ("KM/H", 3.6), "mph": ("MPH", 2.236936),
 DEFAULTS = {
     "wifi": {"ssid": "", "open": True},
     "portal": {"apMode": "always", "ssid": "", "defaultSsid": "HeadUp-1A2B", "open": False, "hostname": "headup"},
-    "data": {"transport": "tcp", "protocol": "auto", "host": "", "port": 1456},
+    "data": {"transport": "tcp", "protocol": "auto", "host": "", "port": 1456, "demo": False},
     "speed": {"source": "prefer_stw", "unit": "kn", "decimals": -1, "smoothing": 1.0, "staleSec": 5, "stwFilter": 0, "sogFilter": 0, "depthUnit": "m", "tempUnit": "c",
               "distanceUnit": "nm", "shortDistanceUnit": "off", "bearingRef": "mag"},
     "display": {
@@ -83,7 +83,7 @@ class Device:
         self.reboot_required = False
         self.boot = time.time()
         self.wifi_since = time.time()
-        self.boat = yd_simulator.Boat(6.5)
+        self.boat = yd_simulator.Boat(6.2)
         self.sid = 0
         self.lines = []  # (seq, t, speed, text)
         self.seq = 0
@@ -119,7 +119,8 @@ class Device:
 
     def speed_state(self):
         mode = self.cfg["speed"]["source"]
-        stw, sog = self.boat.stw_knots() * 0.514444, self.boat.sog_knots() * 0.514444
+        s = self.boat.state()
+        stw, sog = s.stw * KNOT, s.sog * KNOT
         ok = self.connected()
         kind = "SOG" if mode in ("sog", "prefer_sog") else "STW"
         return ok, kind, stw if kind == "STW" else sog, stw, sog
@@ -127,14 +128,14 @@ class Device:
     def values(self):
         """Every value in display units (wind angles: negative = port)."""
         b, c = self.boat, self.cfg["speed"]
+        s = b.state()
         _, f = UNITS[c["unit"]]
         depth_f = 1 / 0.3048 if c["depthUnit"] == "ft" else 1.0
-        awa, aws = b.apparent()
         unit = UNITS[c["unit"]][0]
         dunit = "FT" if c["depthUnit"] == "ft" else "M"
         var = b.variation if c["bearingRef"] == "true" else 0.0
         bref = "oT" if c["bearingRef"] == "true" else "oM"
-        dtw_m = b.dtw_nm() * 1852
+        dtw_m = s.dtw * 1852
         short = {"m": (1.0, "M"), "yd": (0.9144, "YD"), "ft": (0.3048, "FT")}.get(c["shortDistanceUnit"])
         if short and dtw_m / short[0] < 999.5:
             dtw = (round(dtw_m / short[0]), short[1])
@@ -142,12 +143,13 @@ class Device:
             m, u = {"km": (1000.0, "KM"), "mi": (1609.344, "MI")}.get(c["distanceUnit"], (1852.0, "NM"))
             dtw = (dtw_m / m, u)
         return {
-            "stw": (b.stw_knots() * KNOT * f, unit), "sog": (b.sog_knots() * KNOT * f, unit),
-            "awa": (awa, ""), "aws": (aws * KNOT * f, unit), "twa": (b.twa(), ""), "tws": (b.tws_knots() * KNOT * f, unit),
-            "twd": ((b.twd() + var) % 360, bref), "hdg": ((b.heading() + var) % 360, bref), "dtw": dtw,
-            "cog": ((b.heading() + 4 + var) % 360, bref), "btw": ((212 + var) % 360, bref),
-            "mtw": (b.water_temp() * 1.8 + 32, "oF") if c["tempUnit"] == "f" else (b.water_temp(), "oC"),
-            "vmg": (b.vmg_knots() * KNOT * f, unit), "vmc": (b.vmc_knots() * KNOT * f, unit), "dpt": (b.depth() * depth_f, dunit),
+            "stw": (s.stw * KNOT * f, unit), "sog": (s.sog * KNOT * f, unit),
+            "awa": (s.awa, ""), "aws": (s.aws * KNOT * f, unit), "twa": (s.twa, ""), "tws": (s.tws * KNOT * f, unit),
+            "twd": ((s.twd + var) % 360, bref), "hdg": ((s.heading + var) % 360, bref), "dtw": dtw,
+            # Bearings are magnetic in the snapshot except COG; the waypoint is dead upwind.
+            "cog": ((s.cog_true - b.variation + var) % 360, bref), "btw": ((s.twd + var) % 360, bref),
+            "mtw": (s.water_temp * 1.8 + 32, "oF") if c["tempUnit"] == "f" else (s.water_temp, "oC"),
+            "vmg": (s.vmg * KNOT * f, unit), "vmc": (s.vmg * KNOT * f, unit), "dpt": (s.depth * depth_f, dunit),
         }
 
     # -- API --
@@ -172,7 +174,8 @@ class Device:
             "ap": {"active": True, "ssid": self.cfg["portal"]["ssid"] or "HeadUp-1A2B", "ip": "192.168.71.1", "clients": 1},
             "data": {
                 "transport": self.cfg["data"]["transport"], "host": self.cfg["data"]["host"], "port": self.cfg["data"]["port"],
-                "remote": "192.168.4.1" if conn else "", "state": "connected" if conn else "no_network", "lastError": "",
+                "remote": "192.168.4.1" if conn else "",
+                "state": "demo" if self.cfg["data"]["demo"] else "connected" if conn else "no_network", "lastError": "",
                 "connects": 1 if conn else 0, "bytes": self.stats["lines"] * 40, "lineRate": 12.0 if conn else 0,
                 "lastLineAgo": data_age, "protocol": proto, "detected": ("raw" if proto == "raw" else "nmea0183") if conn else "",
                 "lines": self.stats["lines"], "nmeaLines": self.stats["lines"], "rawLines": 0, "badChecksum": 0, "ignored": 0,
