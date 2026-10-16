@@ -173,6 +173,7 @@ void handleStatus() {
   JsonDocument doc;
   uint32_t now = millis();
   doc["fw"] = FW_VERSION;
+  doc["portalBuild"] = WEB_PORTAL_BUILD;  // an open page reloads when this changes
   doc["board"] = board().name;
   doc["firmwareTag"] = firmwareTag();
   doc["deviceId"] = deviceId();

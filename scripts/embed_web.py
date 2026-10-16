@@ -1,6 +1,12 @@
 # PlatformIO pre-build step: gzip web/index.html into src/generated/web_index.h
 # so the portal ships inside the firmware image (no filesystem upload needed).
+#
+# Also stamps the page with a fingerprint of its contents (in place of the
+# __PORTAL_BUILD__ placeholder) and puts the same fingerprint in the header as
+# WEB_PORTAL_BUILD. The firmware reports it in /api/status, so an open portal
+# notices when the display is serving a different page and reloads.
 import gzip
+import hashlib
 import os
 
 Import("env")  # noqa: F821  (provided by PlatformIO/SCons)
@@ -10,7 +16,9 @@ source = os.path.join(project, "web", "index.html")
 target = os.path.join(project, "src", "generated", "web_index.h")
 
 with open(source, "rb") as f:
-    payload = gzip.compress(f.read(), compresslevel=9, mtime=0)
+    html = f.read()
+build = hashlib.sha256(html).hexdigest()[:10]
+payload = gzip.compress(html.replace(b"__PORTAL_BUILD__", build.encode()), compresslevel=9, mtime=0)
 
 lines = []
 for i in range(0, len(payload), 20):
@@ -21,6 +29,7 @@ header = (
     "#pragma once\n"
     "#include <stddef.h>\n"
     "#include <stdint.h>\n\n"
+    f'#define WEB_PORTAL_BUILD "{build}"\n'
     f"static const size_t WEB_INDEX_GZ_LEN = {len(payload)};\n"
     "static const uint8_t WEB_INDEX_GZ[] = {\n" + "\n".join(lines) + "\n};\n"
 )
@@ -30,4 +39,4 @@ existing = open(target).read() if os.path.exists(target) else None
 if existing != header:
     with open(target, "w") as f:
         f.write(header)
-    print(f"embed_web: {os.path.relpath(source, project)} -> {len(payload)} bytes gzipped")
+    print(f"embed_web: {os.path.relpath(source, project)} -> {len(payload)} bytes gzipped, build {build}")

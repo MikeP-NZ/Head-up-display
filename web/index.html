@@ -633,6 +633,26 @@ code { font-family: var(--mono); font-size: 12.5px; background: var(--panel-2); 
 'use strict';
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => Array.from(el.querySelectorAll(s));
+// Fingerprint of this page, filled in by scripts/embed_web.py when it is
+// built into the firmware. Left as the placeholder when served unbuilt (mock
+// device), which turns the reload check off.
+const PORTAL_BUILD = '__PORTAL_BUILD__';
+
+// After a firmware update the display serves a different portal page, but an
+// open browser tab keeps running the old one: load the new one. At most once
+// per build, so a page the browser keeps serving from cache can't loop.
+function reloadForNewPortal(build) {
+  if (!build || PORTAL_BUILD.startsWith('__') || build === PORTAL_BUILD) return false;
+  try {
+    if (sessionStorage.getItem('portalReload') === build) return false;
+    sessionStorage.setItem('portalReload', build);
+  } catch (e) {
+    return false;  // no way to remember the attempt: don't risk a loop
+  }
+  location.reload();
+  return true;
+}
+
 // The firmware sends the panel's unit labels (capitals, "o" for a degree
 // sign); the portal shows unit names and standard symbols instead.
 const UNIT_NAMES = { KN: 'knots', 'KM/H': 'km/h', MPH: 'mph', 'M/S': 'm/s', NM: 'nautical miles', KM: 'kilometres', MI: 'miles',
@@ -1418,6 +1438,7 @@ async function pollStatus() {
   if (document.hidden) { statusTimer = setTimeout(pollStatus, 2000); return; }
   try {
     st = await api('/api/status', undefined, { timeout: 4000 });
+    if (reloadForNewPortal(st.portalBuild)) return;
     if (!online) {
       online = true;
       $('#offline').hidden = true;
