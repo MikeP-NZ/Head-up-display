@@ -29,6 +29,9 @@ import yd_simulator  # noqa: E402
 
 PREVIEW = os.path.join(HERE, "preview", "preview.exe")
 KNOT = 0.514444
+# Served like the firmware does (see scripts/embed_web.py).
+HOME_SCREEN_FILES = {"/manifest.webmanifest": "application/manifest+json", "/icon-180.png": "image/png",
+                     "/icon-192.png": "image/png", "/icon-512.png": "image/png"}
 UNITS = {"kn": ("KN", 1.943844), "kmh": ("KM/H", 3.6), "mph": ("MPH", 2.236936), "mps": ("M/S", 1.0)}
 
 DEFAULTS = {
@@ -290,6 +293,9 @@ def make_handler(dev):
                 if u.path in ("/", "/index.html"):
                     with open(os.path.join(ROOT, "web", "index.html"), "rb") as f:
                         return self.send(200, f.read(), "text/html; charset=utf-8")
+                if u.path in HOME_SCREEN_FILES:
+                    with open(os.path.join(ROOT, "web", u.path[1:]), "rb") as f:
+                        return self.send(200, f.read(), HOME_SCREEN_FILES[u.path])
                 if u.path == "/api/config":
                     return self.send(200, {**dev.cfg, "rebootRequired": dev.reboot_required, "board": dev.board})
                 if u.path == "/api/export":
