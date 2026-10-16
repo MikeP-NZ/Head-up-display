@@ -81,6 +81,8 @@ void applyPendingChanges() {
 // Connection problems, shown full screen with a ticker. Empty while data
 // flows.
 String connectionMessage(bool& isError) {
+  isError = false;
+  if (app.link.demo()) return "";  // simulated data needs no connection
   isError = true;
   const Settings& s = app.settings;
   if (!app.wifi.staConnected()) {
@@ -145,7 +147,7 @@ void renderFrame() {
     d.drawMessage("RELEASE:INFO", detail, held * 100 / kResetHoldMs, now);
   } else if (app.testPattern) {
     d.drawTestPattern(now - app.testPatternStartMs);
-  } else if (!app.wifi.staConfigured() || infoActive) {
+  } else if ((!app.wifi.staConfigured() && !app.settings.demo) || infoActive) {
     InfoView v;
     v.setupMode = !app.wifi.staConfigured();
     v.apActive = app.wifi.apActive();
@@ -168,6 +170,7 @@ void renderFrame() {
     v.wifiUp = app.wifi.staConnected();
     v.linkUp = app.link.linkUp();
     v.message = connectionMessage(v.messageIsError);
+    v.simulated = app.link.demo();
     // Full-screen layout: name what is missing. Multi-section layouts show
     // dashes in the sections without data instead.
     if (v.message.length() == 0 && s.sections == 1 && !v.items[0].valid) {

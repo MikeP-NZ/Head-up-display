@@ -215,6 +215,7 @@ void settingsToJson(const Settings& s, JsonObject root, bool includeSecrets) {
   data["protocol"] = nameOf(kProtocols, s.protocol);
   data["host"] = s.host;
   data["port"] = s.port;
+  data["demo"] = s.demo;
 
   JsonObject speed = root["speed"].to<JsonObject>();
   speed["source"] = nameOf(kSourceModes, s.sourceMode);
@@ -297,6 +298,7 @@ bool settingsMergeJson(Settings& s, JsonObjectConst root, SettingsChanges& chang
     m.choice(o, "protocol", kProtocols, n.protocol);
     m.str(o, "host", n.host, 63);
     m.num(o, "port", n.port, 1, 65535);
+    m.boolean(o, "demo", n.demo);
   }
   if (JsonObjectConst o = root["speed"]) {
     m.choice(o, "source", kSourceModes, n.sourceMode);

@@ -78,6 +78,7 @@ int main(int argc, char** argv) {
     v.linkUp = num("link", 1) != 0;
     v.message = str("msg", "").c_str();
     v.messageIsError = num("err", 0) != 0;
+    v.simulated = num("simulated", 0) != 0;
     if (screen == "speed") {
       // The classic single speed screen.
       v.sections = 1;

@@ -177,6 +177,7 @@ code { font-family: var(--mono); font-size: 12.5px; background: var(--panel-2); 
 <main>
   <div class="banner offline" id="offline" hidden><p><b>Lost contact with the display.</b> It may be rebooting or switching Wi-Fi. Retrying…</p></div>
   <div class="banner" id="reboot-banner" hidden><p>Panel settings were saved and take effect after a reboot.</p><button class="btn primary" data-action="reboot">Reboot now</button></div>
+  <div class="banner" id="demo-banner" hidden><p><b>Demo mode.</b> The display is showing simulated data, not your instruments.</p><button class="btn" type="button" id="demo-off">Turn off</button></div>
 
   <!-- LIVE -->
   <section id="tab-live" role="tabpanel">
@@ -283,6 +284,12 @@ code { font-family: var(--mono); font-size: 12.5px; background: var(--panel-2); 
 
   <!-- DATA -->
   <section id="tab-data" role="tabpanel" hidden>
+    <div class="card">
+      <h2>Demo mode</h2>
+      <p class="sub">Shows a simulated sailing boat beating to windward, so the display can be demonstrated without instruments or a gateway. It tacks every 3 minutes, swinging about 45° either side of the wind, so the apparent wind changes sides. The panel flashes SIMULATED DATA over the values every 5 seconds, and the gateway connection is paused while it runs.</p>
+      <label class="check"><input type="checkbox" id="data-demo"> Show simulated data</label>
+    </div>
+
     <form class="card" id="form-data">
       <h2>Gateway data port</h2>
       <p class="sub">Where the display reads NMEA data from. Factory setting on Yacht Devices gateways: Server #1, TCP, port 1456, NMEA 0183.</p>
@@ -900,6 +907,7 @@ function fillForms() {
   for (const k of PIN_NAMES) $('#pin-' + k).value = p.pins[k];
 
   $('#reboot-banner').hidden = !c.rebootRequired;
+  $('#data-demo').checked = !!c.data.demo;
 }
 
 function syncOpen(prefix) {
@@ -1129,6 +1137,13 @@ $('#panel-driver').addEventListener('change', () => {
   if ($('#panel-driver').value === 'SM16380') $('#panel-clkPhase').checked = false;
   syncDriverFields();
 });
+async function setDemo(on) {
+  const r = await save({ data: { demo: on } }, on ? 'Demo mode on' : 'Demo mode off');
+  $('#data-demo').checked = r ? on : !on;
+  if (r) $('#demo-banner').hidden = !on;
+}
+$('#data-demo').addEventListener('change', () => setDemo($('#data-demo').checked));
+$('#demo-off').addEventListener('click', () => setDemo(false));
 $('#pins-reset').addEventListener('click', () => { for (const k of PIN_NAMES) $('#pin-' + k).value = cfg.board.defaultPins[k]; });
 
 // ---------- actions ----------
@@ -1292,6 +1307,9 @@ function stepsFor(s) {
   const w = s.wifi, d = s.data;
   const steps = [];
   let hint;
+  if (d.state === 'demo') {
+    return [{ title: 'Demo mode', state: 'warn', hint: 'The display shows a simulated boat. Turn demo mode off on the Data tab to read the gateway.' }];
+  }
   if (w.connected) hint = `Joined “${w.ssid}” as ${w.ip} (signal ${w.rssi} dBm).`;
   else if (!w.configured) hint = 'Choose the gateway’s Wi-Fi network on the Wi-Fi tab.';
   else if (w.state === 'network_not_found') hint = `“${w.ssid}” is not in range. Is the gateway powered and its Wi-Fi in access point mode?`;
@@ -1363,7 +1381,7 @@ function renderStatus(s) {
   const d = s.data;
   const kv = [
     ['State', d.state.replace('_', ' ')],
-    ['Target', d.transport === 'udp' ? `UDP port ${d.port}` : `${d.host || 'gateway'} → ${d.remote || '?'}:${d.port}`],
+    ['Target', d.state === 'demo' ? 'Simulated boat (demo mode)' : d.transport === 'udp' ? `UDP port ${d.port}` : `${d.host || 'gateway'} → ${d.remote || '?'}:${d.port}`],
     ['Last error', d.lastError || '—'],
     ['Detected', d.detected ? (d.detected === 'raw' ? 'RAW (NMEA 2000)' : 'NMEA 0183') : '—'],
     ['Lines', `${d.lines} (${d.lineRate}/s) · last ${ago(d.lastLineAgo)} ago`],
@@ -1389,6 +1407,7 @@ function renderStatus(s) {
   $('#sys-kv').innerHTML = sys.map(([k, v]) => `<dt>${k}</dt><dd>${escapeHtml(v)}</dd>`).join('');
 
   $('#reboot-banner').hidden = !s.rebootRequired;
+  $('#demo-banner').hidden = s.data.state !== 'demo';
   fillFilterSelects();
   updateClockNote();
 }

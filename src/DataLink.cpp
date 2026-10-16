@@ -26,10 +26,11 @@ void DataLink::apply(const Settings& s) {
   decoder_.setProtocol(s.protocol);
   model_.configure(s.modelConfig());
   if (s.transport != pending_.transport || s.host != pending_.host || s.port != pending_.port ||
-      configGen_ == 0) {
+      s.demo != pending_.demo || configGen_ == 0) {
     pending_.transport = s.transport;
     pending_.host = s.host;
     pending_.port = s.port;
+    pending_.demo = s.demo;
     configGen_ = configGen_ + 1;
   }
   unlock();
@@ -74,6 +75,7 @@ void DataLink::run() {
   uint32_t nextAttemptMs = 0;
   uint32_t backoffMs = 1000;
   uint32_t lastByteMs = 0;
+  uint32_t demoStartMs = 0;
   uint8_t buf[512];
 
   auto closeAll = [&]() {
@@ -100,6 +102,20 @@ void DataLink::run() {
       lastLineMs_ = 0;
       nextAttemptMs = now;
       backoffMs = 1000;
+      demoStartMs = now;
+    }
+
+    // Demo mode needs no network: the simulated boat's sentences go through
+    // the same decoder as the gateway's.
+    if (active_.demo) {
+      state_ = State::Demo;
+      lock();
+      remote_ = IPAddress();
+      unlock();
+      demoBoat_.sentences(now - demoStartMs, demoLine, this);
+      updateRate(now);
+      vTaskDelay(pdMS_TO_TICKS(kDemoIntervalMs));
+      continue;
     }
 
     if (!netUp_) {
@@ -110,11 +126,7 @@ void DataLink::run() {
       continue;
     }
 
-    if (now - rateWindowStart_ >= 2000) {
-      lineRate_ = rateWindowLines_ * 1000.0f / (now - rateWindowStart_);
-      rateWindowLines_ = 0;
-      rateWindowStart_ = now;
-    }
+    updateRate(now);
 
     if (active_.transport == Transport::Udp) {
       if (!udpOpen) {
@@ -222,6 +234,16 @@ void DataLink::consume(const uint8_t* buf, size_t len) {
   }
 }
 
+void DataLink::updateRate(uint32_t now) {
+  if (now - rateWindowStart_ >= 2000) {
+    lineRate_ = rateWindowLines_ * 1000.0f / (now - rateWindowStart_);
+    rateWindowLines_ = 0;
+    rateWindowStart_ = now;
+  }
+}
+
+void DataLink::demoLine(const char* line, void* self) { static_cast<DataLink*>(self)->handleLine(line); }
+
 void DataLink::handleLine(const char* line) {
   uint32_t now = millis();
   lock();
@@ -239,7 +261,7 @@ void DataLink::handleLine(const char* line) {
 }
 
 void DataLink::statusJson(JsonObject out) {
-  static const char* kStates[] = {"no_network", "connecting", "connected", "retrying", "listening"};
+  static const char* kStates[] = {"no_network", "connecting", "connected", "retrying", "listening", "demo"};
   out["transport"] = transportName(active_.transport);
   out["host"] = active_.host;
   out["port"] = active_.port;

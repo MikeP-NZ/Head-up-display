@@ -5,13 +5,14 @@
 #include <freertos/FreeRTOS.h>
 #include <freertos/semphr.h>
 
+#include "BoatModel.h"
+#include "DemoBoat.h"
 #include "LineDecoder.h"
 #include "Settings.h"
-#include "BoatModel.h"
 
 // Connection to a Yacht Devices server port (TCP client or UDP listener),
-// running in its own task so a slow connect never stalls the display or the
-// portal. The decoder, boat model and sniffer are shared with the main loop
+// or the simulated boat in demo mode, running in its own task so a slow
+// connect never stalls the display or the portal. The decoder, boat model and sniffer are shared with the main loop
 // and must only be touched between lock() and unlock().
 class DataLink {
  public:
@@ -24,7 +25,8 @@ class DataLink {
   BoatModel& model() { return model_; }
   LineDecoder& decoder() { return decoder_; }
 
-  bool linkUp() const { return state_ == State::Connected || state_ == State::Listening; }
+  bool linkUp() const { return state_ == State::Connected || state_ == State::Listening || state_ == State::Demo; }
+  bool demo() const { return state_ == State::Demo; }
   uint32_t msSinceLine() const { return millis() - lastLineMs_; }
   bool everReceived() const { return lastLineMs_ != 0; }
 
@@ -36,13 +38,16 @@ class DataLink {
   void discoveryJson(JsonObject out);
 
  private:
-  enum class State : uint8_t { NoNetwork, Connecting, Connected, Retrying, Listening };
+  enum class State : uint8_t { NoNetwork, Connecting, Connected, Retrying, Listening, Demo };
 
   struct Target {
     Transport transport = Transport::Tcp;
     String host;
     uint16_t port = 1456;
+    bool demo = false;
   };
+
+  static constexpr uint32_t kDemoIntervalMs = 500;
 
   static constexpr size_t kLineMax = 160;
   static constexpr size_t kSniffLines = 48;
@@ -62,12 +67,15 @@ class DataLink {
   bool resolve(const String& host, IPAddress& out);
   void consume(const uint8_t* buf, size_t len);
   void handleLine(const char* line);
+  static void demoLine(const char* line, void* self);
+  void updateRate(uint32_t now);
   void setError(const char* fmt, ...);
   void setRemote(const IPAddress& ip);
 
   SemaphoreHandle_t mutex_ = nullptr;
   BoatModel model_;
   LineDecoder decoder_;
+  DemoBoat demoBoat_;
 
   volatile bool netUp_ = false;
   volatile uint32_t configGen_ = 0;

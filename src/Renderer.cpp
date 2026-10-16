@@ -229,8 +229,29 @@ uint16_t Renderer::valueColor(const ItemView& item) const {
 void Renderer::drawDash(const DashView& v, uint32_t nowMs) {
   if (v.sections <= 1 || v.message.length()) {
     drawSingle(v, nowMs);
-    return;
+  } else {
+    drawSections(v);
   }
+  // Demo mode: shown for 1.5 s in every 5 s, so nobody mistakes it for real data.
+  if (v.simulated && nowMs % 5000 < 1500) drawSimulatedBanner();
+}
+
+// "SIMULATED DATA" in a box over the middle of the screen ("SIM DATA" where
+// "SIMULATED" does not fit).
+void Renderer::drawSimulatedBanner() {
+  canvas_->setFont(nullptr);
+  canvas_->setTextSize(1);
+  const int cw = canvas_->width(), ch = canvas_->height();
+  const char* first = cw >= 58 ? "SIMULATED" : "SIM";
+  const int bw = max(textWidth(first), textWidth("DATA")) + 5, bh = 21;
+  const int x = (cw - bw) / 2, y = (ch - bh) / 2;
+  canvas_->fillRect(x, y, bw, bh, 0);
+  canvas_->drawRect(x, y, bw, bh, warnColor());
+  drawCentered(first, y + 3, warnColor());
+  drawCentered("DATA", y + 11, warnColor());
+}
+
+void Renderer::drawSections(const DashView& v) {
   canvas_->fillScreen(0);
   canvas_->setTextSize(1);
   int cw = canvas_->width();

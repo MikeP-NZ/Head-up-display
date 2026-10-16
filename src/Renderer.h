@@ -26,6 +26,7 @@ struct DashView {
   // a multi-section layout falls back to it while there is a message.
   String message;
   bool messageIsError = false;
+  bool simulated = false;  // demo mode: flash "SIMULATED DATA" over the values
 };
 
 struct InfoView {
@@ -80,6 +81,8 @@ class Renderer {
   uint16_t okColor() const;
   uint16_t errColor() const;
   void drawSingle(const DashView& v, uint32_t nowMs);
+  void drawSections(const DashView& v);
+  void drawSimulatedBanner();
   // Fonts for one section's label row, see drawDash().
   struct CellFonts {
     bool largeLabel = false;

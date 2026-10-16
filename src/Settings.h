@@ -36,6 +36,8 @@ struct Settings {
   DataProtocol protocol = DataProtocol::Auto;
   String host;  // empty = Wi-Fi gateway (the YD device when joined to its AP)
   uint16_t port = 1456;
+  // Demo mode: simulated boat data instead of the gateway (see DemoBoat.h).
+  bool demo = false;
 
   // Speed
   SourceMode sourceMode = SourceMode::PreferStw;
