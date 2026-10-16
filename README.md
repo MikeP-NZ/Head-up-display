@@ -248,9 +248,12 @@ switches to the full-screen layout with a scrolling problem description.
 - **Big digits**: the value. The digit slots stay fixed, so 9.9 → 10.0 doesn't
   change the digit size.
 - **Top left**: the label (`STW`/`SOG` for *Boat speed*, whichever is shown).
-- **Bottom line**: the unit (`PORT`/`STBD` for wind angles), or a scrolling
-  problem description (`NO WIFI …`, `NO LINK …`, `NO DATA`, `NO SPEED DATA`,
-  `NO AWA DATA` …).
+- **Top right**: the unit, or for wind angles the side: `<<<` port (red),
+  `>>>` starboard (green). On a 32 px wide portrait panel the side shortens to
+  `<<`/`>>`, and other units, and if need be the label, use the small font.
+- **Bottom line**: only while there is a problem, a scrolling description
+  (`NO WIFI …`, `NO LINK …`, `NO DATA`, `NO SPEED DATA`, `NO AWA DATA` …).
+  Otherwise the digits use that row too.
 
 On short panels (64×32), the labels move to a narrow column on the right so the
 digits can use the full height. The column uses the 5×7 font when the panel

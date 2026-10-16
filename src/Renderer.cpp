@@ -376,12 +376,18 @@ void Renderer::drawSingle(const DashView& dash, uint32_t nowMs) {
   formatItem(v.item, v.valid, v.value, style_.decimals, text, sizeof(text), v.shortDistance);
   uint16_t digitColor = valueColor(v);
 
-  // Wind angles show the side where other items show their unit.
+  // Wind angles show the side where other items show their unit: <<< port,
+  // >>> starboard (<< and >> where space is short).
+  const bool windAngle = itemInfo(v.item).format == ItemFormat::WindAngle;
   char side = v.valid ? itemSide(v.item, v.value) : 0;
-  const char* unit = v.unit;
-  if (itemInfo(v.item).format == ItemFormat::WindAngle) unit = side == 'P' ? "PORT" : side == 'S' ? "STBD" : "";
+  auto sideMarker = [&](bool shortForm) {
+    if (side == 'P') return shortForm ? "<<" : "<<<";
+    if (side == 'S') return shortForm ? ">>" : ">>>";
+    return "";
+  };
+  const char* unit = windAngle ? sideMarker(false) : v.unit;
   // Wind angles keep the unit row while dead ahead so the digits do not jump.
-  bool showUnit = style_.showUnit && (*unit || itemInfo(v.item).format == ItemFormat::WindAngle);
+  bool showUnit = style_.showUnit && (*unit || windAngle);
   uint16_t unitColor = side ? digitColor : accentColor();
   const char* label = itemLabel(v);
   bool showLabel = style_.showSource && *label;
@@ -390,9 +396,9 @@ void Renderer::drawSingle(const DashView& dash, uint32_t nowMs) {
   // Short panels (64x32): label rows above and below would halve the digits,
   // so put the labels in a narrow column on the right instead.
   if (ch < 48 && labels && dash.message.length() == 0) {
-    // Wind angles size the column for PORT/STBD, so the font doesn't change
-    // as the wind crosses the bow.
-    const char* sizingUnit = itemInfo(v.item).format == ItemFormat::WindAngle ? "PORT" : unit;
+    // Wind angles size the column for the side marker, so the font doesn't
+    // change as the wind crosses the bow.
+    const char* sizingUnit = windAngle ? "<<<" : unit;
     auto columnWidth = [&](bool large) {
       int colW = 0;
       if (showUnit) colW = max(colW, labelWidth(sizingUnit, large));
@@ -413,24 +419,40 @@ void Renderer::drawSingle(const DashView& dash, uint32_t nowMs) {
     return;
   }
 
-  bool top = showLabel;
-  bool bottom = showUnit || dash.message.length() > 0;
+  // Label top left, unit top right; the bottom row is only for a problem
+  // message, so the digits get the rest of the height.
+  bool top = showLabel || showUnit;
+  bool bottom = dash.message.length() > 0;
   int y0 = top ? 9 : 1;
   int y1 = bottom ? ch - 9 : ch - 1;
 
-  // The speed item only names STW/SOG once it knows which one it shows.
-  if (showLabel && (v.valid || v.item != Item::Speed)) {
-    canvas_->setTextColor(accentColor());
-    canvas_->setCursor(1, 0);
-    canvas_->print(label);
+  // Where label and unit don't both fit in the 5x7 font (32 px wide
+  // portrait), a wind angle's side marker shortens to << / >>; otherwise the
+  // unit and then the label too use the small font. Wind angles size for the
+  // side marker so the fonts stay put as the wind crosses the bow.
+  const char* sizingUnit = windAngle ? "<<<" : unit;
+  bool largeLabel = true, largeUnit = true;
+  auto fits = [&]() {
+    int w = showLabel ? labelWidth(label, largeLabel) : 0;
+    if (showUnit) w += (showLabel ? 4 : 0) + labelWidth(sizingUnit, largeUnit);
+    return w <= cw - 2;
+  };
+  if (windAngle && !fits()) {
+    unit = sideMarker(true);
+    sizingUnit = "<<";
   }
+  if (!fits()) largeUnit = false;
+  if (!fits()) largeLabel = false;
+
+  // The speed item only names STW/SOG once it knows which one it shows.
+  if (showLabel && (v.valid || v.item != Item::Speed)) drawLabel(label, 1, 6, largeLabel, accentColor());
+  if (showUnit && *unit) drawLabel(unit, cw - 1 - labelWidth(unit, largeUnit), 6, largeUnit, unitColor);
+  canvas_->setFont(nullptr);
 
   drawNumber(text, 0, y0, cw - 1, y1 - y0, digitColor);
 
   if (dash.message.length()) {
     drawTicker(dash.message.c_str(), ch - 8, dash.messageIsError ? errColor() : warnColor(), nowMs);
-  } else if (showUnit) {
-    drawCentered(unit, ch - 8, unitColor);
   }
 }
 
