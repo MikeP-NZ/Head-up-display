@@ -4,3 +4,5 @@ src/generated/
 tools/decode/decode
 tools/preview/preview
 *.exe
+__pycache__/
+*.bak
