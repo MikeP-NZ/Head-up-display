@@ -52,6 +52,12 @@ struct Settings {
   DistanceUnit distanceUnit = DistanceUnit::NauticalMiles;
   ShortDistanceUnit shortDistanceUnit = ShortDistanceUnit::Off;
   BearingRef bearingRef = BearingRef::Magnetic;
+  // True wind and VMG: received, calculated where missing, or calculated.
+  TrueWindMode trueWind = TrueWindMode::FillMissing;
+  HeadingSource windHeading = HeadingSource::Hdg;
+  // Magnetic variation to use while none is received (east positive).
+  bool defaultVariationOn = false;
+  float defaultVariation = 0;
 
   // Display
   uint8_t brightness = 160;

@@ -212,9 +212,10 @@ void handleStatus() {
     Item item = static_cast<Item>(i);
     Quantity q;
     if (!itemQuantity(item, q)) continue;
-    BoatModel::Reading r = model.bearing(q, units.bearing, now);
+    BoatModel::Reading r = readItem(model, item, units.bearing, now);
     JsonObject o = values[itemInfo(item).id].to<JsonObject>();
     o["valid"] = r.valid;
+    if (r.calculated) o["calculated"] = true;
     o["unit"] = itemUnit(item, units);
     if (r.valid) valueJson(o, item, r.value, units);
     if (r.ageMs || r.valid) o["age"] = r.ageMs;

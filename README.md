@@ -54,10 +54,22 @@ It understands both data protocols Yacht Devices gateways offer:
 
 Bearings (HDG, COG, BTW, TWD) are shown **magnetic** or **true**, as chosen on
 the Units tab. A value sent in the other reference is converted with the
-magnetic variation from `RMC`/`HDG` or PGN 127250/127258; until a variation has
-been seen it is not shown. Values are shown only as
-the instruments send them: true wind and VMG are not calculated on the
-display.
+magnetic variation from `RMC`/`HDG` or PGN 127250/127258. If your system doesn't
+send a variation, set a default one on the Units tab; without either, such a
+value is not shown.
+
+TWA, TWS, TWD and VMG can be calculated on the display when the instruments
+don't send them. On the Units tab, choose *Only use received values*,
+*Calculate missing values* (the default) or *Only use calculated values*:
+
+- **TWA and TWS** come from the apparent wind (AWA, AWS) and the boat speed
+  picked by the Units tab's *Speed source* (STW or SOG).
+- **TWD** is the heading plus TWA. *Heading for TWD* picks HDG (wind over the
+  water) or COG (wind over the ground, best with SOG as the speed source).
+- **VMG** is the boat speed times cos(TWA).
+
+TWD and VMG use the TWA that is shown, received or calculated. The Live tab
+marks calculated values.
 
 *Auto* accepts either. With several sensors on the bus you can choose which
 device to trust, either by NMEA 2000 source address (RAW) or by talker ID (0183).
@@ -215,7 +227,7 @@ sends.
 | Live | Current speed, every instrument value, live LED preview, setup checklist, every data source seen on the bus |
 | Network | Boat network (with scan); setup network name, password, always-on vs fallback, hostname |
 | Source | Demo mode; TCP/UDP, gateway address and port, NMEA 0183 / RAW / Auto, gateway discovery, connection stats, live data view |
-| Units | STW vs SOG for *Boat speed* (with fallback), speed units (kn, km/h, mph, m/s), depth units (m, ft), temperature units (°C, °F), distance units (NM, km, mi) with optional m/yd/ft for distances under 1000 of those, magnetic or true bearings, decimals, smoothing, stale timeout, per-device source selection |
+| Units | STW vs SOG for *Boat speed* (with fallback), received or calculated true wind and VMG, heading for TWD, default magnetic variation, speed units (kn, km/h, mph, m/s), depth units (m, ft), temperature units (°C, °F), distance units (NM, km, mi) with optional m/yd/ft for distances under 1000 of those, magnetic or true bearings, decimals, smoothing, stale timeout, per-device source selection |
 | Layout | Layout (1, 2 or 4 sections) and the value in each, brightness, colours, rotation, which labels to show, night mode (manual or scheduled), test pattern |
 | Hardware | HUB75 driver chip (including SM16380 S-PWM panels), colour order, clock speed and phase, panel size and chaining; GPIO pins (Waveshare, Matrix Portal) or output connector (HD-WF4). Needs a reboot |
 | System | Firmware info, OTA update, settings export and import, reboot, factory reset |
@@ -301,8 +313,8 @@ turned off.
 | "network not found" | Is the gateway in access point mode and in range? Its SSID is case-sensitive |
 | Reaches Wi-Fi, "no answer from 192.168.4.1:1456" | The server port is off, or 3 TCP clients are already connected. Use another server or UDP |
 | Data flows but "NO SPEED DATA" | Check the 0183 transmit filters, or switch to RAW; make sure the Units tab's source mode allows the speed that exists (STW vs SOG) |
-| A section shows dashes | The bus doesn't carry that value: the **Live** tab lists what arrives. Check the gateway's 0183 transmit filters, or use RAW. A bearing sent only in the other reference (true vs magnetic) needs a magnetic variation (`RMC`, `HDG`, PGN 127258) |
-| VMG stays empty with RAW | NMEA 2000 has no standard VMG message; use NMEA 0183 with `VPW` from your instruments |
+| A section shows dashes | The bus doesn't carry that value: the **Live** tab lists what arrives. Check the gateway's 0183 transmit filters, or use RAW. A bearing sent only in the other reference (true vs magnetic) needs a magnetic variation (`RMC`, `HDG`, PGN 127258) or a default one on the Units tab. Missing TWA, TWS, TWD or VMG can be calculated (Units tab) |
+| VMG stays empty with RAW | NMEA 2000 has no standard VMG message. Let the display calculate it (Units → *Calculate missing values*), or use NMEA 0183 with `VPW` from your instruments |
 | Phone keeps dropping the setup network | While the display can't find the boat Wi-Fi it scans for it, which moves its own network between channels. Set up the boat Wi-Fi first, or set the setup network to *fallback* |
 
 ## Development

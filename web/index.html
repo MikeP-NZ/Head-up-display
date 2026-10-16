@@ -340,7 +340,7 @@ code { font-family: var(--mono); font-size: 12.5px; background: var(--panel-2); 
           <li>Open <b>NMEA Server</b>. Enable a server, choose TCP or UDP and a port, and set its data protocol to <b>NMEA 0183</b> or <b>RAW</b>.</li>
           <li>Prefer <b>UDP</b> if chart-plotter apps also use the gateway: a TCP server only accepts 3 connections, and UDP has no limit.</li>
           <li>For NMEA 0183, check that the transmit filter lets through the sentences for the values you want: <code>VHW</code> (speed through water, heading), <code>RMC</code>/<code>VTG</code> (GPS speed and course), <code>MWV</code> (wind), <code>MWD</code> (wind direction), <code>HDG</code>/<code>HDM</code> (heading), <code>DPT</code>/<code>DBT</code> (depth), <code>RMB</code>/<code>BWC</code> (waypoint distance and bearing) and <code>VPW</code> (VMG) and <code>MTW</code> (water temperature).</li>
-          <li>RAW carries the NMEA 2000 messages directly (PGN 128259 speed, 129026 GPS speed and course, 130306 wind, 127250 heading, 127258 variation, 128267 depth, 129284 waypoint, 130310/130311/130312/130316 water temperature), so no filters are involved. VMG to wind has no standard NMEA 2000 message; it needs NMEA 0183 <code>VPW</code>.</li>
+          <li>RAW carries the NMEA 2000 messages directly (PGN 128259 speed, 129026 GPS speed and course, 130306 wind, 127250 heading, 127258 variation, 128267 depth, 129284 waypoint, 130310/130311/130312/130316 water temperature), so no filters are involved. VMG to wind has no standard NMEA 2000 message; the display can calculate it (Units tab), or use NMEA 0183 <code>VPW</code>.</li>
         </ol>
       </details>
       <div class="actions"><button class="btn primary" type="submit">Save &amp; reconnect</button></div>
@@ -366,17 +366,8 @@ code { font-family: var(--mono); font-size: 12.5px; background: var(--panel-2); 
   <!-- SPEED -->
   <section id="tab-speed" role="tabpanel" hidden>
     <form class="card" id="form-speed">
-      <h2>Speed and units</h2>
-      <p class="sub">STW is speed through water (paddle wheel/log). SOG is speed over ground (GPS). The <i>Boat speed</i> item shows whichever the speed source picks.</p>
+      <h2>Units</h2>
       <div class="grid">
-        <label class="field"><span>Speed source</span>
-          <select id="speed-source">
-            <option value="prefer_stw">Through water, else GPS</option>
-            <option value="prefer_sog">GPS, else through water</option>
-            <option value="stw">Through water only (STW)</option>
-            <option value="sog">GPS only (SOG)</option>
-          </select>
-        </label>
         <label class="field"><span>Speed units</span>
           <select id="speed-unit">
             <option value="kn">Knots</option>
@@ -418,7 +409,7 @@ code { font-family: var(--mono); font-size: 12.5px; background: var(--panel-2); 
             <option value="mag">Magnetic</option>
             <option value="true">True</option>
           </select>
-          <div class="hint">Applies to HDG, COG, BTW and TWD. Converting between the two needs the magnetic variation, which GPS sends (RMC, PGN 127258).</div>
+          <div class="hint">Applies to HDG, COG, BTW and TWD. Converting between the two needs the magnetic variation, which GPS sends (RMC, PGN 127258), or the default variation below.</div>
         </label>
         <label class="field"><span>Speed decimals</span>
           <select id="speed-decimals">
@@ -437,6 +428,42 @@ code { font-family: var(--mono); font-size: 12.5px; background: var(--panel-2); 
         </label>
       </div>
     </form>
+    <div class="card">
+      <h2>Boat speed, true wind and VMG</h2>
+      <p class="sub">STW is speed through water (paddle wheel/log), SOG is speed over ground (GPS). The speed source picks which one the <i>Boat speed</i> item shows, and which one the calculations use: TWA and TWS are worked out from the apparent wind (AWA, AWS) and that speed, TWD adds the heading, and VMG is the speed times cos(TWA).</p>
+      <div class="grid">
+        <label class="field"><span>Speed source</span>
+          <select id="speed-source">
+            <option value="prefer_stw">Through water, else GPS</option>
+            <option value="prefer_sog">GPS, else through water</option>
+            <option value="stw">Through water only (STW)</option>
+            <option value="sog">GPS only (SOG)</option>
+          </select>
+        </label>
+        <label class="field"><span>TWA, TWS, TWD and VMG</span>
+          <select id="speed-trueWind">
+            <option value="received">Only use received values</option>
+            <option value="fill">Calculate missing values</option>
+            <option value="calculated">Only use calculated values</option>
+          </select>
+          <div class="hint">The Live tab marks calculated values.</div>
+        </label>
+        <label class="field"><span>Heading for TWD</span>
+          <select id="speed-windHeading">
+            <option value="hdg">Heading (HDG, compass)</option>
+            <option value="cog">Course over ground (COG, GPS)</option>
+          </select>
+          <div class="hint">HDG gives the wind's direction over the water; COG, with GPS speed, over the ground.</div>
+        </label>
+        <div class="field"><span class="field-label">Default magnetic variation</span>
+          <div class="row" style="gap:8px">
+            <input type="number" id="speed-defaultVariation" min="0" max="180" step="0.1" inputmode="decimal" placeholder="Not set" style="flex:1">
+            <select id="speed-variationDir" style="width:auto"><option value="E">E</option><option value="W">W</option></select>
+          </div>
+          <div class="hint">Used for true/magnetic conversions while no variation is received. Leave empty if your GPS sends it.</div>
+        </div>
+      </div>
+    </div>
     <form class="card" id="form-filter">
       <h2>Source device</h2>
       <p class="sub">With more than one speed sensor or GPS on the bus, pick which one to trust. NMEA 2000 devices appear by source address with RAW, and as talker IDs with NMEA 0183.</p>
@@ -871,6 +898,11 @@ function fillForms() {
   $('#speed-distanceUnit').value = c.speed.distanceUnit || 'nm';
   $('#speed-shortDistanceUnit').value = c.speed.shortDistanceUnit || 'off';
   $('#speed-bearingRef').value = c.speed.bearingRef || 'mag';
+  $('#speed-trueWind').value = c.speed.trueWind || 'fill';
+  $('#speed-windHeading').value = c.speed.windHeading || 'hdg';
+  const variation = c.speed.defaultVariation || 0;
+  $('#speed-defaultVariation').value = c.speed.defaultVariationOn ? String(Math.abs(variation)) : '';
+  $('#speed-variationDir').value = variation < 0 ? 'W' : 'E';
   syncSmoothing();
   fillFilterSelects();
 
@@ -1066,6 +1098,9 @@ $('#form-data').addEventListener('submit', async (ev) => {
 
 $('#form-speed').addEventListener('submit', async (ev) => {
   ev.preventDefault();
+  const variationText = $('#speed-defaultVariation').value.trim();
+  const variation = Number(variationText);
+  if (variationText && !(variation >= 0 && variation <= 180)) return toast('Variation must be 0 to 180 degrees', true);
   await save({
     speed: {
       source: $('#speed-source').value,
@@ -1078,6 +1113,10 @@ $('#form-speed').addEventListener('submit', async (ev) => {
       distanceUnit: $('#speed-distanceUnit').value,
       shortDistanceUnit: $('#speed-shortDistanceUnit').value,
       bearingRef: $('#speed-bearingRef').value,
+      trueWind: $('#speed-trueWind').value,
+      windHeading: $('#speed-windHeading').value,
+      defaultVariationOn: variationText !== '',
+      defaultVariation: variationText ? ($('#speed-variationDir').value === 'W' ? -variation : variation) : 0,
       stwFilter: Number($('#speed-stwFilter').value),
       sogFilter: Number($('#speed-sogFilter').value),
     },
@@ -1392,7 +1431,8 @@ function renderStatus(s) {
   $('#values').innerHTML = itemList().filter(it => vals[it.id]).map(it => {
     const v = vals[it.id];
     const unit = ['awa', 'twa'].includes(it.id) ? (Math.abs(v.value) < 0.5 || Math.abs(v.value) >= 179.5 ? 'degrees' : v.value < 0 ? 'port' : 'starboard') : UNIT_NAMES[v.unit] || v.unit || '';
-    return `<div class="val${v.valid ? '' : ' off'}"><span class="lbl">${it.label}</span><b>${v.valid ? fmtValue(it.id, v.value, v.unit) : '—'}</b><small title="${escapeHtml(it.name)}">${escapeHtml(v.valid ? unit || it.name : it.name)}</small></div>`;
+    const text = (v.valid ? unit || it.name : it.name) + (v.valid && v.calculated ? ' · calculated' : '');
+    return `<div class="val${v.valid ? '' : ' off'}"><span class="lbl">${it.label}</span><b>${v.valid ? fmtValue(it.id, v.value, v.unit) : '—'}</b><small title="${escapeHtml(it.name)}">${escapeHtml(text)}</small></div>`;
   }).join('');
 
   $('#steps').innerHTML = stepsFor(s).map(x => `<li><span class="dot ${x.state === 'idle' ? '' : x.state}"></span><div><b>${x.title}</b><div class="hint">${escapeHtml(x.hint)}</div></div></li>`).join('');

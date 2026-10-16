@@ -39,6 +39,7 @@ DEFAULTS = {
     "portal": {"apMode": "always", "ssid": "", "defaultSsid": "HeadUp-1A2B", "open": False, "hostname": "headup"},
     "data": {"transport": "tcp", "protocol": "auto", "host": "", "port": 1456, "demo": False},
     "speed": {"source": "prefer_stw", "unit": "kn", "decimals": -1, "smoothing": 1.0, "staleSec": 5, "stwFilter": 0, "sogFilter": 0, "depthUnit": "m", "tempUnit": "c",
+              "trueWind": "fill", "windHeading": "hdg", "defaultVariationOn": False, "defaultVariation": 0,
               "distanceUnit": "nm", "shortDistanceUnit": "off", "bearingRef": "mag"},
     "display": {
         "brightness": 160, "speedColor": "#ffffff", "accentColor": "#00a0ff", "showSource": True, "showUnit": True,

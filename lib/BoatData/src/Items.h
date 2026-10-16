@@ -75,7 +75,8 @@ bool itemQuantity(Item item, Quantity& q);
 Item itemForQuantity(Quantity q);
 
 // The current reading behind an item: Speed per the source mode, bearings
-// referenced as `ref` asks.
+// referenced as `ref` asks, true wind and VMG received or calculated per the
+// true wind mode (BoatModel::shown).
 BoatModel::Reading readItem(const BoatModel& model, Item item, BearingRef ref, uint32_t nowMs);
 
 struct DisplayValue {

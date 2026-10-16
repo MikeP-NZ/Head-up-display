@@ -138,7 +138,7 @@ BoatModel::Reading readItem(const BoatModel& model, Item item, BearingRef ref, u
   if (item == Item::Speed) return model.speed(nowMs);
   Quantity q;
   if (!itemQuantity(item, q)) return BoatModel::Reading{};
-  return model.bearing(q, ref, nowMs);
+  return model.shown(q, ref, nowMs);
 }
 
 DisplayValue itemDisplay(Item item, float value, const DisplayUnits& units) {

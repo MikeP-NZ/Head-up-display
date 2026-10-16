@@ -2,6 +2,8 @@
 
 #include <math.h>
 #include <stdio.h>
+
+#include <algorithm>
 #include <string.h>
 
 namespace {
@@ -94,11 +96,15 @@ void BoatModel::recordSource(Quantity q, float value, uint32_t sourceId, const c
 }
 
 bool BoatModel::variation(float& deg, uint32_t nowMs) const {
-  if (!hasVariation_ || nowMs - variationMs_ > kVariationValidMs) {
-    return false;
+  if (hasVariation_ && nowMs - variationMs_ <= kVariationValidMs) {
+    deg = variation_;
+    return true;
   }
-  deg = variation_;
-  return true;
+  if (cfg_.hasDefaultVariation) {
+    deg = cfg_.defaultVariation;
+    return true;
+  }
+  return false;
 }
 
 void BoatModel::ingest(const Decoded& d, uint32_t sourceId, const char* via, uint32_t nowMs) {
@@ -215,4 +221,48 @@ BoatModel::Reading BoatModel::bearing(Quantity q, BearingRef ref, uint32_t nowMs
   o.value = wrapBearing(ref == BearingRef::True ? o.value + var : o.value - var);
   o.q = want;
   return o;
+}
+
+BoatModel::Reading BoatModel::shown(Quantity q, BearingRef ref, uint32_t nowMs) const {
+  Reading received = bearing(q, ref, nowMs);
+  bool calculable = q == Quantity::Twa || q == Quantity::Tws || q == Quantity::Vmg || q == Quantity::Twd ||
+                    q == Quantity::TwdTrue;
+  if (!calculable || cfg_.trueWind == TrueWindMode::Received) return received;
+  if (cfg_.trueWind == TrueWindMode::FillMissing && received.valid) return received;
+  return calculated(q, ref, nowMs);
+}
+
+BoatModel::Reading BoatModel::calculated(Quantity q, BearingRef ref, uint32_t nowMs) const {
+  Reading r;
+  r.q = q;
+  r.calculated = true;
+  Reading boat = speed(nowMs);
+
+  if (q == Quantity::Twa || q == Quantity::Tws) {
+    // Apparent wind = true wind + the headwind of the boat's own speed.
+    Reading awa = get(Quantity::Awa, nowMs), aws = get(Quantity::Aws, nowMs);
+    if (!awa.valid || !aws.valid || !boat.valid) return r;
+    float a = awa.value * kDegToRad;
+    float x = aws.value * cosf(a) - boat.value, y = aws.value * sinf(a);
+    r.value = q == Quantity::Tws ? hypotf(x, y) : wrapSigned(atan2f(y, x) / kDegToRad);
+    r.ageMs = std::max({awa.ageMs, aws.ageMs, boat.ageMs});
+    r.valid = true;
+    return r;
+  }
+
+  Reading twa = shown(Quantity::Twa, ref, nowMs);
+  if (!twa.valid) return r;
+  if (q == Quantity::Vmg) {
+    if (!boat.valid) return r;
+    r.value = boat.value * cosf(twa.value * kDegToRad);
+    r.ageMs = std::max(boat.ageMs, twa.ageMs);
+  } else {  // TWD
+    Reading heading = bearing(cfg_.windHeading == HeadingSource::Cog ? Quantity::Cog : Quantity::Hdg, ref, nowMs);
+    if (!heading.valid) return r;
+    r.q = ref == BearingRef::True ? Quantity::TwdTrue : Quantity::Twd;
+    r.value = wrapBearing(heading.value + twa.value);
+    r.ageMs = std::max(heading.ageMs, twa.ageMs);
+  }
+  r.valid = true;
+  return r;
 }

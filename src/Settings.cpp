@@ -35,6 +35,9 @@ constexpr EnumName<ShortDistanceUnit> kShortDistanceUnits[] = {{ShortDistanceUni
                                                                {ShortDistanceUnit::Yards, "yd"},
                                                                {ShortDistanceUnit::Feet, "ft"}};
 constexpr EnumName<BearingRef> kBearingRefs[] = {{BearingRef::Magnetic, "mag"}, {BearingRef::True, "true"}};
+constexpr EnumName<TrueWindMode> kTrueWindModes[] = {
+    {TrueWindMode::Received, "received"}, {TrueWindMode::FillMissing, "fill"}, {TrueWindMode::Calculated, "calculated"}};
+constexpr EnumName<HeadingSource> kHeadingSources[] = {{HeadingSource::Hdg, "hdg"}, {HeadingSource::Cog, "cog"}};
 constexpr EnumName<NightMode> kNightModes[] = {
     {NightMode::Off, "off"}, {NightMode::On, "on"}, {NightMode::Schedule, "schedule"}};
 constexpr EnumName<PanelDriver> kDrivers[] = {{PanelDriver::ShiftReg, "SHIFTREG"}, {PanelDriver::FM6124, "FM6124"},
@@ -168,6 +171,10 @@ ModelConfig Settings::modelConfig() const {
   c.staleMs = static_cast<uint32_t>(staleSec) * 1000;
   c.stwFilter = stwFilter;
   c.sogFilter = sogFilter;
+  c.trueWind = trueWind;
+  c.windHeading = windHeading;
+  c.hasDefaultVariation = defaultVariationOn;
+  c.defaultVariation = defaultVariation;
   return c;
 }
 
@@ -230,6 +237,10 @@ void settingsToJson(const Settings& s, JsonObject root, bool includeSecrets) {
   speed["distanceUnit"] = nameOf(kDistanceUnits, s.distanceUnit);
   speed["shortDistanceUnit"] = nameOf(kShortDistanceUnits, s.shortDistanceUnit);
   speed["bearingRef"] = nameOf(kBearingRefs, s.bearingRef);
+  speed["trueWind"] = nameOf(kTrueWindModes, s.trueWind);
+  speed["windHeading"] = nameOf(kHeadingSources, s.windHeading);
+  speed["defaultVariationOn"] = s.defaultVariationOn;
+  speed["defaultVariation"] = s.defaultVariation;
 
   JsonObject display = root["display"].to<JsonObject>();
   display["brightness"] = s.brightness;
@@ -312,6 +323,10 @@ bool settingsMergeJson(Settings& s, JsonObjectConst root, SettingsChanges& chang
     m.choice(o, "distanceUnit", kDistanceUnits, n.distanceUnit);
     m.choice(o, "shortDistanceUnit", kShortDistanceUnits, n.shortDistanceUnit);
     m.choice(o, "bearingRef", kBearingRefs, n.bearingRef);
+    m.choice(o, "trueWind", kTrueWindModes, n.trueWind);
+    m.choice(o, "windHeading", kHeadingSources, n.windHeading);
+    m.boolean(o, "defaultVariationOn", n.defaultVariationOn);
+    m.flt(o, "defaultVariation", n.defaultVariation, -180.0f, 180.0f);
   }
   if (JsonObjectConst o = root["display"]) {
     m.num(o, "brightness", n.brightness, 0, 255);

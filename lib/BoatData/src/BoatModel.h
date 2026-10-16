@@ -17,6 +17,16 @@ enum class SpeedUnit : uint8_t { Knots = 0, Kmh = 1, Mph = 2, Mps = 3 };
 // Which north bearings are shown against.
 enum class BearingRef : uint8_t { Magnetic = 0, True = 1 };
 
+// Where TWA, TWS, TWD and VMG come from.
+enum class TrueWindMode : uint8_t {
+  Received = 0,     // only as sent by the instruments
+  FillMissing = 1,  // as sent, else calculated
+  Calculated = 2,   // always calculated, ignoring any that are sent
+};
+
+// The heading a calculated TWD is based on.
+enum class HeadingSource : uint8_t { Hdg = 0, Cog = 1 };
+
 float convertSpeed(float mps, SpeedUnit unit);
 const char* unitLabel(SpeedUnit unit);
 
@@ -42,6 +52,11 @@ struct ModelConfig {
   uint32_t staleMs = 5000;
   uint32_t stwFilter = 0;
   uint32_t sogFilter = 0;
+  TrueWindMode trueWind = TrueWindMode::FillMissing;
+  HeadingSource windHeading = HeadingSource::Hdg;
+  // Used while no variation is received (degrees, east positive).
+  bool hasDefaultVariation = false;
+  float defaultVariation = 0;
 };
 
 // Latest smoothed value of every quantity, plus which bus devices sent them.
@@ -56,6 +71,7 @@ class BoatModel {
     Quantity q = Quantity::Stw;
     float value = 0;  // internal units
     uint32_t ageMs = 0;
+    bool calculated = false;  // worked out from other values, not received
   };
 
   void configure(const ModelConfig& cfg);
@@ -72,7 +88,15 @@ class BoatModel {
   // received in that reference while it is current, otherwise the other one
   // converted with the magnetic variation. Other quantities are as get().
   Reading bearing(Quantity q, BearingRef ref, uint32_t nowMs) const;
+  // What the display shows for `q`, bearings in `ref`: as bearing(), except
+  // that TWA, TWS, TWD and VMG may be calculated, per the true wind mode.
+  //   TWA, TWS  from AWA, AWS and the boat speed (see speed())
+  //   TWD       heading (HDG or COG, per windHeading) + TWA
+  //   VMG       boat speed x cos(TWA)
+  // TWD and VMG use the TWA that would be shown, received or calculated.
+  Reading shown(Quantity q, BearingRef ref, uint32_t nowMs) const;
 
+  // The received variation while current, else the default, if set.
   bool variation(float& deg, uint32_t nowMs) const;
 
   size_t sourceCount() const { return nSources_; }
@@ -89,6 +113,7 @@ class BoatModel {
   };
 
   void recordSource(Quantity q, float value, uint32_t sourceId, const char* via, uint32_t nowMs);
+  Reading calculated(Quantity q, BearingRef ref, uint32_t nowMs) const;
 
   ModelConfig cfg_;
   Channel ch_[kQuantityCount];

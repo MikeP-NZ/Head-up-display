@@ -771,6 +771,90 @@ static void test_demo_boat_tacks_through_the_wind() {
   TEST_ASSERT_TRUE(boat.at(DemoBoat::kLegMs + DemoBoat::kTackMs).stw < boat.at(90000).stw - 1.5f);
 }
 
+// A model fed apparent wind 30 deg to starboard at 20 kn, with STW 6 kn
+// and heading 200 deg magnetic.
+static BoatModel windModel(TrueWindMode mode) {
+  BoatModel m;
+  ModelConfig cfg;
+  cfg.smoothingSec = 0;
+  cfg.trueWind = mode;
+  m.configure(cfg);
+  m.ingest(Quantity::Awa, 30.0f, nmeaSourceId("II"), "MWV", 1000);
+  m.ingest(Quantity::Aws, 20.0f * kKn, nmeaSourceId("II"), "MWV", 1000);
+  m.ingest(Quantity::Stw, 6.0f * kKn, nmeaSourceId("II"), "VHW", 1000);
+  m.ingest(Quantity::Hdg, 200.0f, nmeaSourceId("II"), "HDG", 1000);
+  return m;
+}
+
+static void test_true_wind_calculated_from_apparent_wind() {
+  BoatModel m = windModel(TrueWindMode::FillMissing);
+  // x = 20 cos30 - 6 = 11.32, y = 20 sin30 = 10 -> TWS 15.10 kn, TWA 41.46 deg
+  BoatModel::Reading twa = m.shown(Quantity::Twa, BearingRef::Magnetic, 1100);
+  BoatModel::Reading tws = m.shown(Quantity::Tws, BearingRef::Magnetic, 1100);
+  TEST_ASSERT_TRUE(twa.valid && twa.calculated);
+  TEST_ASSERT_FLOAT_WITHIN(0.05f, 41.46f, twa.value);
+  TEST_ASSERT_FLOAT_WITHIN(0.02f, 15.10f, tws.value / kKn);
+  // TWD = heading + TWA; VMG = STW cos(TWA).
+  TEST_ASSERT_FLOAT_WITHIN(0.05f, 241.46f, m.shown(Quantity::Twd, BearingRef::Magnetic, 1100).value);
+  TEST_ASSERT_FLOAT_WITHIN(0.01f, 4.497f, m.shown(Quantity::Vmg, BearingRef::Magnetic, 1100).value / kKn);
+  // Port wind gives a negative TWA.
+  m.ingest(Quantity::Awa, -30.0f, nmeaSourceId("II"), "MWV", 1200);
+  TEST_ASSERT_FLOAT_WITHIN(0.05f, -41.46f, m.shown(Quantity::Twa, BearingRef::Magnetic, 1300).value);
+  // Other quantities are never calculated.
+  TEST_ASSERT_FALSE(m.shown(Quantity::Dpt, BearingRef::Magnetic, 1300).valid);
+}
+
+static void test_true_wind_modes() {
+  // Received only: nothing without the instruments' own values.
+  BoatModel received = windModel(TrueWindMode::Received);
+  TEST_ASSERT_FALSE(received.shown(Quantity::Twa, BearingRef::Magnetic, 1100).valid);
+  TEST_ASSERT_FALSE(received.shown(Quantity::Vmg, BearingRef::Magnetic, 1100).valid);
+
+  // Fill missing: a received TWA wins, and VMG and TWD are worked out from it.
+  BoatModel fill = windModel(TrueWindMode::FillMissing);
+  fill.ingest(Quantity::Twa, 50.0f, nmeaSourceId("II"), "MWV", 1000);
+  BoatModel::Reading twa = fill.shown(Quantity::Twa, BearingRef::Magnetic, 1100);
+  TEST_ASSERT_FALSE(twa.calculated);
+  TEST_ASSERT_FLOAT_WITHIN(0.01f, 50.0f, twa.value);
+  TEST_ASSERT_FLOAT_WITHIN(0.05f, 250.0f, fill.shown(Quantity::Twd, BearingRef::Magnetic, 1100).value);
+  TEST_ASSERT_FLOAT_WITHIN(0.01f, 6.0f * cosf(50.0f * 3.14159265f / 180), fill.shown(Quantity::Vmg, BearingRef::Magnetic, 1100).value / kKn);
+
+  // Calculated only: the received TWA is ignored.
+  BoatModel calc = windModel(TrueWindMode::Calculated);
+  calc.ingest(Quantity::Twa, 50.0f, nmeaSourceId("II"), "MWV", 1000);
+  twa = calc.shown(Quantity::Twa, BearingRef::Magnetic, 1100);
+  TEST_ASSERT_TRUE(twa.calculated);
+  TEST_ASSERT_FLOAT_WITHIN(0.05f, 41.46f, twa.value);
+
+  // Without boat speed there is nothing to calculate from.
+  BoatModel stale = windModel(TrueWindMode::Calculated);
+  TEST_ASSERT_FALSE(stale.shown(Quantity::Tws, BearingRef::Magnetic, 9000).valid);
+}
+
+static void test_true_wind_direction_heading_source_and_variation() {
+  BoatModel m = windModel(TrueWindMode::Calculated);
+  ModelConfig cfg = m.config();
+  cfg.windHeading = HeadingSource::Cog;
+  m.configure(cfg);
+  TEST_ASSERT_FALSE(m.shown(Quantity::Twd, BearingRef::Magnetic, 1100).valid);  // no COG yet
+  m.ingest(Quantity::CogTrue, 215.0f, nmeaSourceId("GP"), "RMC", 1000);
+  // COG is true; magnetic needs a variation: none received, no default.
+  TEST_ASSERT_FALSE(m.shown(Quantity::Twd, BearingRef::Magnetic, 1100).valid);
+  TEST_ASSERT_FLOAT_WITHIN(0.05f, 256.46f, m.shown(Quantity::TwdTrue, BearingRef::True, 1100).value);
+
+  // A default variation fills in until one is received.
+  cfg.hasDefaultVariation = true;
+  cfg.defaultVariation = 20.0f;
+  m.configure(cfg);
+  float var = 0;
+  TEST_ASSERT_TRUE(m.variation(var, 1100));
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, 20.0f, var);
+  TEST_ASSERT_FLOAT_WITHIN(0.05f, 236.46f, m.shown(Quantity::Twd, BearingRef::Magnetic, 1100).value);
+  m.ingest(Quantity::Variation, 19.0f, nmeaSourceId("GP"), "RMC", 1000);
+  TEST_ASSERT_TRUE(m.variation(var, 1100));
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, 19.0f, var);
+}
+
 int main(int, char**) {
   UNITY_BEGIN();
   RUN_TEST(test_vhw_knots);
@@ -824,5 +908,8 @@ int main(int, char**) {
   RUN_TEST(test_distance_units);
   RUN_TEST(test_demo_boat_feeds_every_item_without_a_clock);
   RUN_TEST(test_demo_boat_tacks_through_the_wind);
+  RUN_TEST(test_true_wind_calculated_from_apparent_wind);
+  RUN_TEST(test_true_wind_modes);
+  RUN_TEST(test_true_wind_direction_heading_source_and_variation);
   return UNITY_END();
 }
