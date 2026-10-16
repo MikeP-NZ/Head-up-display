@@ -173,18 +173,18 @@ code { font-family: var(--mono); font-size: 12.5px; background: var(--panel-2); 
   </div>
   <nav role="tablist" aria-label="Sections">
     <button role="tab" data-tab="live" aria-selected="true">Live</button>
-    <button role="tab" data-tab="wifi">Wi-Fi</button>
-    <button role="tab" data-tab="data">Data</button>
+    <button role="tab" data-tab="wifi">Network</button>
+    <button role="tab" data-tab="data">Source</button>
     <button role="tab" data-tab="speed">Units</button>
-    <button role="tab" data-tab="display">Display</button>
-    <button role="tab" data-tab="panel">Panel</button>
+    <button role="tab" data-tab="display">Layout</button>
+    <button role="tab" data-tab="panel">Hardware</button>
     <button role="tab" data-tab="system">System</button>
   </nav>
 </header>
 
 <main>
   <div class="banner offline" id="offline" hidden><p><b>Lost contact with the display.</b> It may be rebooting or switching Wi-Fi. Retrying…</p></div>
-  <div class="banner" id="reboot-banner" hidden><p>Panel settings were saved and take effect after a reboot.</p><button class="btn primary" data-action="reboot">Reboot now</button></div>
+  <div class="banner" id="reboot-banner" hidden><p>Hardware settings were saved and take effect after a reboot.</p><button class="btn primary" data-action="reboot">Reboot now</button></div>
   <div class="banner" id="demo-banner" hidden><p><b>Demo mode.</b> The display is showing simulated data, not your instruments.</p><button class="btn" type="button" id="demo-off">Turn off</button></div>
 
   <!-- LIVE -->
@@ -206,7 +206,7 @@ code { font-family: var(--mono); font-size: 12.5px; background: var(--panel-2); 
     </div>
     <div class="card">
       <h2>Instruments</h2>
-      <p class="sub">Every value the display has received. Choose which ones the panel shows on the Display tab.</p>
+      <p class="sub">Every value the display has received. Choose which ones the panel shows on the Layout tab.</p>
       <div class="vals" id="values"></div>
     </div>
     <div class="card">
@@ -254,7 +254,7 @@ code { font-family: var(--mono); font-size: 12.5px; background: var(--panel-2); 
           <li>YDWG-02 gateway: network <code>YDWG</code>, password <code>12345678</code>, address <code>192.168.4.1</code>.</li>
           <li>YDNR-02 router: network <code>YDNR</code>, password <code>12345678</code>, address <code>192.168.4.1</code>.</li>
           <li>If you made the network open, tick <i>Open network</i>.</li>
-          <li>If the gateway is joined to a boat router instead (client mode), enter the router's network here and set the gateway's IP address on the Data tab.</li>
+          <li>If the gateway is joined to a boat router instead (client mode), enter the router's network here and set the gateway's IP address on the Source tab.</li>
         </ul>
       </details>
       <div class="actions"><button class="btn primary" type="submit">Save &amp; connect</button></div>
@@ -518,7 +518,7 @@ code { font-family: var(--mono); font-size: 12.5px; background: var(--panel-2); 
         <button class="btn" type="button" data-action="test-pattern">Show test pattern</button>
         <button class="btn" type="button" data-action="info">Show connection info on panel</button>
       </div>
-      <div class="hint">The test pattern cycles red, green, blue and white, then colour bars with a marker in the top-left corner. Use it to check the Panel settings.</div>
+      <div class="hint">The test pattern cycles red, green, blue and white, then colour bars with a marker in the top-left corner. Use it to check the Hardware settings.</div>
     </div>
   </section>
 
@@ -1313,7 +1313,7 @@ $('#import-file').addEventListener('change', async () => {
     let note = 'Settings imported';
     if (json.board && json.board !== cfg.board.id) {
       delete json.panel;
-      note = 'Imported. Panel settings skipped (from a different board)';
+      note = 'Imported. Hardware settings skipped (from a different board)';
     }
     delete json.board;
     await save(json, note);
@@ -1332,12 +1332,12 @@ function stepsFor(s) {
   const steps = [];
   let hint;
   if (d.state === 'demo') {
-    return [{ title: 'Demo mode', state: 'warn', hint: 'The display shows a simulated boat. Turn demo mode off on the Data tab to read the gateway.' }];
+    return [{ title: 'Demo mode', state: 'warn', hint: 'The display shows a simulated boat. Turn demo mode off on the Source tab to read the gateway.' }];
   }
   if (w.connected) hint = `Joined “${w.ssid}” as ${w.ip} (signal ${w.rssi} dBm).`;
-  else if (!w.configured) hint = 'Choose the gateway’s Wi-Fi network on the Wi-Fi tab.';
+  else if (!w.configured) hint = 'Choose the gateway’s Wi-Fi network on the Network tab.';
   else if (w.state === 'network_not_found') hint = `“${w.ssid}” is not in range. Is the gateway powered and its Wi-Fi in access point mode?`;
-  else if (w.state === 'auth_failed') hint = `“${w.ssid}” rejected the password. Check it on the Wi-Fi tab.`;
+  else if (w.state === 'auth_failed') hint = `“${w.ssid}” rejected the password. Check it on the Network tab.`;
   else hint = `Joining “${w.ssid}”…`;
   steps.push({ title: 'Join the boat Wi-Fi', state: w.connected ? 'ok' : w.configured ? 'warn' : 'err', hint });
 
@@ -1346,7 +1346,7 @@ function stepsFor(s) {
   if (!w.connected) hint = 'Waiting for Wi-Fi.';
   else if (linked) hint = udp ? `Receiving UDP broadcasts on port ${d.port} from ${d.remote}.` : `Connected to ${d.remote}:${d.port} over TCP.`;
   else if (udp) hint = `Listening on UDP port ${d.port}. Nothing heard yet: does a gateway server use UDP on this port?`;
-  else hint = (d.lastError ? d.lastError + '. ' : '') + `Check the address and port on the Data tab. The factory default is TCP 1456 on 192.168.4.1. A TCP server allows only 3 clients.`;
+  else hint = (d.lastError ? d.lastError + '. ' : '') + `Check the address and port on the Source tab. The factory default is TCP 1456 on 192.168.4.1. A TCP server allows only 3 clients.`;
   steps.push({ title: 'Reach the gateway', state: linked ? 'ok' : w.connected ? 'err' : 'idle', hint });
 
   const flowing = d.lastLineAgo >= 0 && d.lastLineAgo < 5000;
@@ -1424,7 +1424,7 @@ function renderStatus(s) {
     ['Uptime', `${Math.floor(up / 86400)}d ${Math.floor(up / 3600) % 24}h ${Math.floor(up / 60) % 60}m`],
     ['Boat Wi-Fi', s.wifi.connected ? `${s.wifi.ssid} · ${s.wifi.ip} · ch ${s.wifi.channel} · ${s.wifi.rssi} dBm` : s.wifi.state.replace(/_/g, ' ')],
     ['Setup network', s.ap.active ? `${s.ap.ssid} · ${s.ap.ip} · ${s.ap.clients} connected` : 'off'],
-    ['Panel', s.display.panelOk ? `${s.display.width}×${s.display.height}` : 'NOT INITIALISED — check Panel settings'],
+    ['Panel', s.display.panelOk ? `${s.display.width}×${s.display.height}` : 'NOT INITIALISED — check Hardware settings'],
     ['Free memory', `${Math.round(s.heap / 1024)} KB (min ${Math.round(s.minHeap / 1024)} KB) · PSRAM ${Math.round(s.psram / 1048576)} MB`],
     ['Clock', s.time.valid ? new Date(s.time.epoch * 1000).toISOString().replace('T', ' ').substr(0, 16) + ' UTC' : 'not set'],
   ];

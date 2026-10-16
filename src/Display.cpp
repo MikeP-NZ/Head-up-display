@@ -75,7 +75,7 @@ bool Display::begin(const Settings& s) {
 
   matrix_ = new MatrixPanel_I2S_DMA(cfg);
   if (!matrix_->begin()) {
-    log_e("HUB75 init failed - check panel settings");
+    log_e("HUB75 init failed - check the portal's Hardware settings");
     delete matrix_;
     matrix_ = nullptr;
   } else {
@@ -105,7 +105,7 @@ bool Display::beginSm16380(const Settings& s, const PanelPins& pins) {
   cfg.speedMHz = s.i2sSpeedMHz;
   spwm_ = new Sm16380Panel();
   if (!spwm_->begin(cfg)) {
-    log_e("SM16380 init failed - check panel settings");
+    log_e("SM16380 init failed - check the portal's Hardware settings");
     delete spwm_;
     spwm_ = nullptr;
   }

@@ -101,7 +101,7 @@ flash the Waveshare image (`waveshare_s3_matrix`) to this board**: it expects
 3. The panel shows **SETUP**. From here the steps are the same as in the main
    [README](../README.md#first-time-setup): join `HeadUp-XXXX`, open
    `http://192.168.71.1`, and pick the Yacht Devices network.
-4. On the **Panel** tab, choose the connector you're using. For a two-sided
+4. On the **Hardware** tab, choose the connector you're using. For a two-sided
    display, pick **X1 + X3** (or **X2 + X4**) to show the same image on two
    panels. Most panels sold for Huidu cards use a generic shift-register
    driver, which is the default here. If yours stays dark, try FM6126A.
@@ -161,7 +161,7 @@ should fit. Very long chains may run out of memory.
 | Windows: `could not open port 'COM5'` / access denied | Another program has the port open: close serial monitors (PlatformIO's included), Arduino IDE, Cura and the like |
 | `Failed to connect to ESP32-S3` | Download mode wasn't entered: bridge P2 and S4 while powering on |
 | Flashed, but nothing at all happens | You probably flashed the Waveshare image. Re-flash with `-e huidu_hd_wf4` |
-| Panel dark | Panel tab: check the connector matches the ribbon cable; try driver FM6126A; check panel power |
+| Panel dark | Hardware tab: check the connector matches the ribbon cable; try driver FM6126A; check panel power |
 | 64×64 panel shows only the top half | The panel's E line isn't connected; all four WF4 outputs carry E on GPIO21 |
 
 ## Sources

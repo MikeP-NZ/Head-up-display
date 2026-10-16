@@ -4,8 +4,8 @@
 Streams the same simulated boat as the display's built-in demo mode (beating
 to windward, tacking every 3 minutes): speed, wind, heading, depth and
 waypoint data as NMEA 0183 or YD RAW, over TCP (like the factory-default
-Server #1 on port 1456) or as UDP broadcasts. Point the display's Data
-settings at this computer's IP to test without the boat.
+Server #1 on port 1456) or as UDP broadcasts. On the display's portal, set
+the Source tab to this computer's IP to test without the boat.
 
     python3 tools/yd_simulator.py                      # TCP 1456, NMEA 0183
     python3 tools/yd_simulator.py --protocol raw       # YD RAW (NMEA 2000)
