@@ -1294,17 +1294,24 @@ $('#discover-btn').addEventListener('click', async () => {
   bar.hidden = true;
 });
 
+// What a data port found by the scan usually is.
+function portGuess(port) {
+  if (port >= 1456 && port <= 1460) return 'Yacht Devices';
+  return { 2222: 'NMEA 0183 · SH-wg', 2223: 'YDWG RAW · SH-wg', 10110: 'NMEA 0183 · plotter' }[port] || '';
+}
+
 function renderDiscovery(r) {
   const list = $('#discover-list');
   list.innerHTML = '';
   list.hidden = !r.found.length;
   $('#discover-note').textContent = r.found.length
-    ? 'Tap a result to use it. Port 1456 is the factory default for server #1.'
+    ? 'Tap a result to use it. The label is what that port usually carries.'
     : 'No TCP data ports found. Is a server enabled in the gateway? (UDP servers cannot be found this way.)';
   for (const f of r.found) {
     const b = document.createElement('button');
     b.type = 'button';
-    b.innerHTML = `<span class="ssid">${escapeHtml(f.ip)}:${f.port}</span><span class="meta">TCP</span>`;
+    const guess = portGuess(f.port);
+    b.innerHTML = `<span class="ssid">${escapeHtml(f.ip)}:${f.port}</span><span class="meta">TCP${guess ? ' · ' + guess : ''}</span>`;
     b.addEventListener('click', () => {
       const gw = st && st.wifi.gateway;
       $('#data-host').value = f.ip === gw ? '' : f.ip;

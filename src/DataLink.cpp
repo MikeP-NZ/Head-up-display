@@ -302,10 +302,12 @@ void DataLink::sniffJson(JsonObject out, uint32_t since, bool speedOnly) {
 }
 
 // ---------------------------------------------------------------------------
-// Discovery: find hosts with the server port open. Yacht Devices gateways
+// Discovery: find hosts with a data port open. Yacht Devices gateways
 // listen on TCP 1456 (server #1) by default; servers #2/#3 commonly use
-// 1457/1458. The gateway is probed on all of those first, then the rest of
-// the /24 on the configured port.
+// 1457/1458. A Hat Labs SH-wg serves NMEA 0183 on TCP 2222 and YDWG RAW on
+// 2223, and chart plotters (e.g. B&G) NMEA 0183 on TCP 10110. The network
+// gateway is probed on all of those first, then every host of the /24 on
+// the configured port and the most common ones.
 
 void DataLink::startDiscovery() {
   if (discovering_ || !netUp_) return;
@@ -388,7 +390,15 @@ void DataLink::runDiscovery() {
   IPAddress gw = WiFi.gatewayIP();
   IPAddress mask = WiFi.subnetMask();
 
-  static constexpr uint16_t kGatewayPorts[] = {1456, 1457, 1458, 1459, 1460, 10110, 2000};
+  static constexpr uint16_t kGatewayPorts[] = {1456, 1457, 1458, 1459, 1460, 10110, 2000, 2222, 2223};
+  // Every other host: the configured port plus these (duplicates skipped).
+  static constexpr uint16_t kHostPorts[] = {1456, 2223, 10110};
+  uint16_t hostPorts[1 + sizeof(kHostPorts) / sizeof(kHostPorts[0])];
+  int nHostPorts = 0;
+  hostPorts[nHostPorts++] = discoveryPort_;
+  for (uint16_t p : kHostPorts) {
+    if (p != discoveryPort_) hostPorts[nHostPorts++] = p;
+  }
   Probe probes[64];
   int nProbes = 0;
   auto add = [&](uint32_t ip, uint16_t port) {
@@ -406,7 +416,7 @@ void DataLink::runDiscovery() {
   uint32_t base = selfHost & 0x00FFFFFF;
   (void)mask;
   const int kHosts = 254;
-  int total = nProbes + kHosts;
+  int total = nProbes + kHosts * nHostPorts;
   int doneCount = 0;
 
   auto record = [&](const Probe& p) {
@@ -432,19 +442,23 @@ void DataLink::runDiscovery() {
 
   Probe batch[kBatch];
   int nb = 0;
+  auto flush = [&]() {
+    probeBatch(batch, nb, open);
+    for (int j = 0; j < nb; j++) {
+      if (open[j]) record(batch[j]);
+    }
+    nb = 0;
+  };
   for (int host = 1; host <= kHosts && netUp_; host++) {
     uint32_t ip = base | (static_cast<uint32_t>(host) << 24);
-    if (ip != selfHost && ip != static_cast<uint32_t>(gw)) batch[nb++] = {ip, discoveryPort_};
-    if (nb == kBatch || host == kHosts) {
-      probeBatch(batch, nb, open);
-      for (int j = 0; j < nb; j++) {
-        if (open[j]) record(batch[j]);
-      }
-      nb = 0;
+    for (int k = 0; k < nHostPorts; k++) {
+      if (ip != selfHost && ip != static_cast<uint32_t>(gw)) batch[nb++] = {ip, hostPorts[k]};
+      if (nb == kBatch) flush();
+      doneCount++;
     }
-    doneCount++;
     discoveryProgress_ = doneCount * 100 / total;
   }
+  if (nb) flush();
   discoveryProgress_ = 100;
   discovering_ = false;
 }

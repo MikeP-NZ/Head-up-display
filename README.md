@@ -215,7 +215,8 @@ Configure these in the gateway's own web page, `http://192.168.4.1` (login
 - **Client mode:** if the gateway is joined to a boat router instead of running
   its own access point, join the display to the router and enter the
   gateway's IP on the **Source** tab. **Find gateway** scans the network for
-  open data ports.
+  open TCP data ports: the configured one, 1456 (Yacht Devices), 2223 (SH-wg
+  YDWG RAW) and 10110 (NMEA 0183, e.g. chart plotters).
 
 The **Source** tab shows the raw lines arriving from the gateway, with lines
 that carry values highlighted. This is the quickest way to see what the gateway actually
