@@ -3,7 +3,8 @@
 Displays a wide variety of boat speed, wind, heading, depth or navigation data
 on a HUB75 LED matrix panel (64×64, 64×32 or chained), one value full-screen
 or 2 or 4 at a time, read over Wi-Fi from an NMEA 2000 gateway (e.g. Yacht Devices YDWG-02,
-YDNR-02, or anything else that serves NMEA 0183 or YD RAW on a TCP/UDP port).
+YDNR-02, Hat Labs SH-wg, or anything else that serves NMEA 0183 or YD RAW on a
+TCP/UDP port, such as a B&G chart plotter).
 Everything is set up from a web portal on your phone. No app or cloud is involved.
 
 ![Panel screens](docs/panel/contact_sheet.png)
@@ -219,6 +220,27 @@ Configure these in the gateway's own web page, `http://192.168.4.1` (login
 The **Source** tab shows the raw lines arriving from the gateway, with lines
 that carry values highlighted. This is the quickest way to see what the gateway actually
 sends.
+
+### Other data sources
+
+Anything that serves NMEA 0183 or YD RAW on a TCP or UDP port should work. Set
+its address, transport and port on the **Source** tab.
+
+- **[Hat Labs SH-wg](https://shop.hatlabs.fi/products/sh-wg)**: an NMEA 2000
+  Wi-Fi gateway that can send YDWG RAW (the Yacht Devices RAW format) or
+  NMEA 0183 over TCP or UDP, from its own access point or on the boat network.
+  With YDWG RAW the display reads it the same way as a Yacht Devices gateway.
+  Its default ports ([firmware config](https://github.com/hatlabs/SH-wg-firmware/blob/main/src/config.h)):
+
+  | SH-wg output | TCP | UDP |
+  |---|---|---|
+  | YDWG RAW | 2223 | 2002 |
+  | NMEA 0183 | 2222 | 2000 |
+
+- **B&G chart plotters** can share NMEA 0183 over the network: turn on NMEA
+  0183 output over TCP in the plotter's settings. It is served on port
+  **10110**. Join the display to the same network, then enter the plotter's IP
+  address and port 10110 (TCP, *NMEA 0183* or *Auto*) on the **Source** tab.
 
 ## Portal tabs
 

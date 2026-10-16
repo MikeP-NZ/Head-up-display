@@ -325,6 +325,7 @@ code { font-family: var(--mono); font-size: 12.5px; background: var(--panel-2); 
         </label>
         <label class="field"><span>Port</span>
           <input type="number" id="data-port" min="1" max="65535" inputmode="numeric">
+          <div class="hint">1456 is the Yacht Devices default (Server #1, NMEA 0183 or YD RAW). A Hat Labs SH-wg sends YDWG RAW on TCP 2223. 10110 is the usual port for NMEA 0183 over a network, e.g. from a B&amp;G chart plotter.</div>
         </label>
       </div>
       <div class="row" style="margin-top:12px">
