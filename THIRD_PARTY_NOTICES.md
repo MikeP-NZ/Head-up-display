@@ -190,3 +190,11 @@ SOFTWARE.
 
 The Huidu HD-WF4 pin map and output gating come from community reverse
 engineering, credited in [docs/flashing-hd-wf4.md](docs/flashing-hd-wf4.md#sources).
+
+The SM16380 S-PWM protocol (LAT command lengths, GCLK blocks on OE, register
+map and values) comes from an oscilloscope capture of a working panel posted
+by wata-net in
+[hzeller/rpi-rgb-led-matrix#466](https://github.com/hzeller/rpi-rgb-led-matrix/issues/466#issuecomment-2663327444),
+with the frame structure informed by the FM6353-type drivers in
+[DMD_STM32](https://github.com/board707/DMD_STM32). No code from either
+project is included; `lib/Sm16380` is an independent implementation.

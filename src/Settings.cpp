@@ -3,6 +3,8 @@
 #include <Preferences.h>
 #include <esp_mac.h>
 
+#include "Sm16380Wave.h"
+
 namespace {
 
 constexpr const char* kNamespace = "headupcfg";
@@ -37,7 +39,8 @@ constexpr EnumName<NightMode> kNightModes[] = {
     {NightMode::Off, "off"}, {NightMode::On, "on"}, {NightMode::Schedule, "schedule"}};
 constexpr EnumName<PanelDriver> kDrivers[] = {{PanelDriver::ShiftReg, "SHIFTREG"}, {PanelDriver::FM6124, "FM6124"},
                                               {PanelDriver::FM6126A, "FM6126A"},   {PanelDriver::ICN2038S, "ICN2038S"},
-                                              {PanelDriver::MBI5124, "MBI5124"},   {PanelDriver::DP3246, "DP3246"}};
+                                              {PanelDriver::MBI5124, "MBI5124"},   {PanelDriver::DP3246, "DP3246"},
+                                              {PanelDriver::SM16380, "SM16380"}};
 
 constexpr EnumName<PanelScan> kScans[] = {
     {PanelScan::Standard, "standard"}, {PanelScan::FourScan, "four"}, {PanelScan::FourScanAlt, "four-alt"}};
@@ -212,6 +215,7 @@ void settingsToJson(const Settings& s, JsonObject root, bool includeSecrets) {
   data["protocol"] = nameOf(kProtocols, s.protocol);
   data["host"] = s.host;
   data["port"] = s.port;
+  data["demo"] = s.demo;
 
   JsonObject speed = root["speed"].to<JsonObject>();
   speed["source"] = nameOf(kSourceModes, s.sourceMode);
@@ -255,6 +259,8 @@ void settingsToJson(const Settings& s, JsonObject root, bool includeSecrets) {
   panel["clkPhase"] = s.clkPhase;
   panel["i2sSpeed"] = s.i2sSpeedMHz;
   panel["latchBlanking"] = s.latchBlanking;
+  panel["spwmProfile"] = s.spwmProfile;
+  panel["spwmGrayBits"] = s.spwmGrayBits;
   panel["colorOrder"] = s.colorOrder;
   if (board().portCount) panel["port"] = s.hubPort;
   JsonObject pins = panel["pins"].to<JsonObject>();
@@ -292,6 +298,7 @@ bool settingsMergeJson(Settings& s, JsonObjectConst root, SettingsChanges& chang
     m.choice(o, "protocol", kProtocols, n.protocol);
     m.str(o, "host", n.host, 63);
     m.num(o, "port", n.port, 1, 65535);
+    m.boolean(o, "demo", n.demo);
   }
   if (JsonObjectConst o = root["speed"]) {
     m.choice(o, "source", kSourceModes, n.sourceMode);
@@ -348,18 +355,30 @@ bool settingsMergeJson(Settings& s, JsonObjectConst root, SettingsChanges& chang
     m.choice(o, "scan", kScans, n.scan);
     m.choice(o, "driver", kDrivers, n.driver);
     m.boolean(o, "clkPhase", n.clkPhase);
-    m.num(o, "i2sSpeed", n.i2sSpeedMHz, 8, 20);
+    m.num(o, "i2sSpeed", n.i2sSpeedMHz, 2, 20);
     m.num(o, "latchBlanking", n.latchBlanking, 1, 4);
+    m.num(o, "spwmProfile", n.spwmProfile, 0, sm16380::kProfileCount - 1);
+    m.num(o, "spwmGrayBits", n.spwmGrayBits, 14, 16);
     m.str(o, "colorOrder", n.colorOrder, 3);
     n.colorOrder.toUpperCase();
     if (n.colorOrder.length() != 3 || n.colorOrder.indexOf('R') < 0 || n.colorOrder.indexOf('G') < 0 ||
         n.colorOrder.indexOf('B') < 0) {
       m.fail("colorOrder", "must be a permutation of RGB");
     }
-    if (n.scan != PanelScan::Standard && n.panelHeight != 32 && n.panelHeight != 16) {
-      m.fail("scan", "1/8 scan needs a 32 px high panel (or 16 px for 1/4 scan)");
+    const bool spwm = n.driver == PanelDriver::SM16380;
+    if (n.scan != PanelScan::Standard && n.panelHeight != 32 && n.panelHeight != 16 &&
+        !(spwm && n.panelHeight == 64)) {
+      m.fail("scan", "four-row scan needs a 32 px high panel (or 16 px; 64 px with SM16380)");
     }
-    if (n.i2sSpeedMHz != 8 && n.i2sSpeedMHz != 16 && n.i2sSpeedMHz != 20) m.fail("i2sSpeed", "must be 8, 16 or 20");
+    const bool slowClock = spwm && (n.i2sSpeedMHz == 2 || n.i2sSpeedMHz == 5);
+    if (n.i2sSpeedMHz != 8 && n.i2sSpeedMHz != 16 && n.i2sSpeedMHz != 20 && !slowClock) {
+      m.fail("i2sSpeed", "must be 8, 16 or 20 (or 2 or 5 for SM16380)");
+    }
+    if (n.spwmGrayBits != 14 && n.spwmGrayBits != 16) m.fail("spwmGrayBits", "must be 14 or 16");
+    if (spwm) {
+      if (n.panelWidth % 16 != 0) m.fail("width", "must be a multiple of 16 for SM16380 panels");
+      if (n.panelHeight % 2 != 0 || n.panelHeight > 64) m.fail("height", "must be even and at most 64 for SM16380 panels");
+    }
     if (JsonObjectConst pins = o["pins"]) {
       for (const auto& f : kPinFields) {
         int8_t& pin = n.pins.*(f.member);

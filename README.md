@@ -106,7 +106,9 @@ firmware first.
 The web portal is compiled into the firmware (`scripts/embed_web.py` gzips
 `web/index.html` on every build), so there is no filesystem image to upload.
 Later updates can be uploaded from the portal's **System** tab: pick
-`.pio/build/<environment>/firmware.bin` for your board.
+`.pio/build/<environment>/firmware.bin` for your board. After any update, a
+portal left open in a browser reloads itself once the display is back, if the
+update changed the portal page.
 
 ### Uploading over Wi-Fi from PlatformIO
 
@@ -172,6 +174,18 @@ With a gateway on factory settings, nothing else needs changing. The display
 defaults to TCP, port 1456, *Automatic* gateway address, and *Auto* protocol,
 which matches Server #1 out of the box.
 
+### Portal on your phone's home screen
+
+Add the portal to your phone or tablet's home screen to open it with one tap.
+Open it from the address you normally use, such as `http://headup.local`, then:
+
+- **iPhone / iPad (Safari):** Share → **Add to Home Screen**. It opens full
+  screen, like an app.
+- **Android (Chrome):** ⋮ → **Add to Home screen**. It opens in a browser tab.
+
+The icon only works while the phone is on the network it was added from. One
+added from the setup network (`192.168.71.1`) needs that network.
+
 ### Gateway settings worth knowing
 
 Configure these in the gateway's own web page, `http://192.168.4.1` (login
@@ -200,10 +214,10 @@ sends.
 |---|---|
 | Live | Current speed, every instrument value, live LED preview, setup checklist, every data source seen on the bus |
 | Wi-Fi | Boat network (with scan); setup network name, password, always-on vs fallback, hostname |
-| Data | TCP/UDP, gateway address and port, NMEA 0183 / RAW / Auto, gateway discovery, connection stats, live data view |
+| Data | Demo mode; TCP/UDP, gateway address and port, NMEA 0183 / RAW / Auto, gateway discovery, connection stats, live data view |
 | Units | STW vs SOG for *Boat speed* (with fallback), speed units (kn, km/h, mph, m/s), depth units (m, ft), temperature units (°C, °F), distance units (NM, km, mi) with optional m/yd/ft for distances under 1000 of those, magnetic or true bearings, decimals, smoothing, stale timeout, per-device source selection |
 | Display | Layout (1, 2 or 4 sections) and the value in each, brightness, colours, rotation, which labels to show, night mode (manual or scheduled), test pattern |
-| Panel | HUB75 driver chip, colour order, clock speed and phase, panel size and chaining; GPIO pins (Waveshare, Matrix Portal) or output connector (HD-WF4). Needs a reboot |
+| Panel | HUB75 driver chip (including SM16380 S-PWM panels), colour order, clock speed and phase, panel size and chaining; GPIO pins (Waveshare, Matrix Portal) or output connector (HD-WF4). Needs a reboot |
 | System | Firmware info, OTA update, settings export and import, reboot, factory reset |
 
 ## The panel
@@ -256,11 +270,30 @@ The **BOOT** button on the Waveshare board, **S1** on the HD-WF4, or **UP** on t
 | Hold 3 s, release | Show connection info on the panel for 30 s, and turn on the setup network for 15 min |
 | Hold 10 s | Factory reset |
 
+## Demo mode
+
+To show the display without instruments or a gateway, tick **Show simulated
+data** on the portal's **Data** tab. The display then sails a simulated boat
+beating to windward. It tacks every 3 minutes, swinging about 45° either side
+of the wind so the apparent wind changes sides, and loses speed in each tack.
+Every value on the Display tab is simulated, so any layout can be shown.
+
+While demo mode is on:
+
+- the panel flashes **SIMULATED DATA** over the values for 1.5 s in every 5 s;
+- the portal shows a banner with a **Turn off** button;
+- the gateway connection is paused, and no boat Wi-Fi is needed;
+- the clock is not set from the simulated data.
+
+The setting survives a reboot, so the display stays in demo mode until it is
+turned off.
+
 ## Troubleshooting
 
 | Symptom | Try |
 |---|---|
 | Panel dark or garbled | **Panel** tab: driver *FM6126A*, then *Generic*; lower the clock speed; check the panel's 5 V supply |
+| Panel with SM16380 chips (often with a RUC7258D row driver) | **Panel** → Driver chip → *SM16380*. Count the driver chips: 16 per colour on a 64×64 panel means 1/16 scan (Scan rate → *1/8 scan … or 1/16*); 8 per colour means 1/32 (*Standard*). Leave *Clock data on the rising edge* unticked (ticked gives vertical ghosting and white blocks of columns). Known good on a 64×64 P2.5 SM16380SF/RUC7258 panel: 1/16 scan, *Captured settings*, 16 bit, 20 MHz. If the picture is wrong, try the alternate row order, the other register set, slower clock speeds, then *14 bit* grey levels. SM16380SH chips use a different protocol and are not supported |
 | Rows doubled, interleaved or in 8-row blocks | The panel is 1/8 scan (often marked *8S*): **Panel** → Scan rate → *1/8 scan*, then try *alternate row order* |
 | Colours wrong in the test pattern | **Panel** → Colour order |
 | Upside down / sideways | **Display** → Rotation |
@@ -283,8 +316,9 @@ python3 tools/preview/render_png.py      # regenerate docs/panel/*.png
 python3 tools/mock_device.py --fresh     # portal against a fake device: http://127.0.0.1:8765
 python3 tools/mock_device.py --board wf4 # ... pretending to be an HD-WF4
 python3 tools/mock_device.py --board matrixportal # ... or a Matrix Portal S3
-python3 tools/yd_simulator.py            # fake YD gateway on TCP 1456 (NMEA 0183): speed, wind, heading, depth, waypoint
+python3 tools/yd_simulator.py            # fake YD gateway on TCP 1456 (NMEA 0183): the demo mode boat
 python3 tools/yd_simulator.py --protocol raw --transport udp --port 1457
+python3 tools/make_icons.py              # redraw the portal's home-screen icons in web/
 ```
 
 Windows (PowerShell, in the VS Code PlatformIO terminal so `pio` is on the PATH):
@@ -296,8 +330,9 @@ tools\preview\build.ps1                  # host build of the panel renderer
 python tools\preview\render_png.py       # regenerate docs\panel\*.png (pip install pillow)
 python tools\mock_device.py --fresh      # portal against a fake device: http://127.0.0.1:8765
 python tools\mock_device.py --board wf4  # ... pretending to be an HD-WF4
-python tools\yd_simulator.py             # fake YD gateway on TCP 1456 (NMEA 0183)
+python tools\yd_simulator.py             # fake YD gateway on TCP 1456 (NMEA 0183): the demo mode boat
 python tools\yd_simulator.py --protocol raw --transport udp --port 1457
+python tools\make_icons.py               # redraw the portal's home-screen icons in web\
 ```
 
 Windows notes:
@@ -316,8 +351,10 @@ Windows notes:
   Windows Defender Firewall on *private* networks, or the display can't
   connect. Mark the boat or bench Wi-Fi as a *private* network.
 
-To bench-test the real display without the boat, run `yd_simulator.py` on a
-laptop. Join the display and the laptop to the same network, then enter the
+To bench-test the real display without the boat, use demo mode, or run
+`yd_simulator.py` on a laptop to test the gateway connection as well. The
+simulator sails the same boat as demo mode, and adds the time and position.
+Join the display and the laptop to the same network, then enter the
 laptop's IP and port on the display's **Data** tab. Find the laptop's IP with
 `ipconfig getifaddr en0` (macOS), `hostname -I` (Linux) or `ipconfig`
 (Windows, *IPv4 Address* under the Wi-Fi adapter).
@@ -336,7 +373,8 @@ python tools\stream.py --udp 1457 | tools\decode\decode.exe   # UDP server
 ### Layout
 
 ```
-lib/BoatData/     portable NMEA 0183 + YD RAW parsers, the boat model and the display items (unit-tested)
+lib/BoatData/     portable NMEA 0183 + YD RAW parsers, the boat model, the display items and the demo boat (unit-tested)
+lib/Sm16380/      clock-by-clock waveform for SM16380 S-PWM panels (unit-tested)
 src/
   Board.*         per-board pins, defaults, button/LED, HD-WF4 output ports
   main.cpp        boot, render loop, night schedule, button
@@ -346,8 +384,9 @@ src/
   Settings.*      settings model, JSON validation, NVS storage
   Renderer.*      all panel screens (hardware-free; also builds on the host)
   Display.*       HUB75 driver glue
-web/index.html    the portal (embedded at build time)
-tools/            simulator, mock device, preview renderer, decoder CLI, stream.py (nc for Windows)
+  Sm16380Panel.*  SM16380 output: replays the waveform through the S3's LCD peripheral
+web/              the portal (index.html) and its home-screen manifest and icons, embedded at build time
+tools/            simulator, mock device, preview renderer, decoder CLI, stream.py (nc for Windows), icon generator
 ```
 
 HUB75 pin map for the Waveshare board, taken from Waveshare's examples:

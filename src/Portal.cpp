@@ -67,6 +67,12 @@ void handleIndex() {
   server.send_P(200, "text/html; charset=utf-8", reinterpret_cast<const char*>(WEB_INDEX_GZ), WEB_INDEX_GZ_LEN);
 }
 
+// Home-screen files (app manifest, icons); they only change with the firmware.
+void handleAsset(const WebAsset& a) {
+  server.sendHeader("Cache-Control", "max-age=86400");
+  server.send_P(200, a.type, reinterpret_cast<const char*>(a.data), a.len);
+}
+
 void boardJson(JsonObject o) {
   const BoardInfo& b = board();
   o["id"] = b.id;
@@ -173,6 +179,7 @@ void handleStatus() {
   JsonDocument doc;
   uint32_t now = millis();
   doc["fw"] = FW_VERSION;
+  doc["portalBuild"] = WEB_PORTAL_BUILD;  // an open page reloads when this changes
   doc["board"] = board().name;
   doc["firmwareTag"] = firmwareTag();
   doc["deviceId"] = deviceId();
@@ -447,6 +454,7 @@ void handleNotFound() {
 void begin() {
   server.on("/", HTTP_GET, handleIndex);
   server.on("/index.html", HTTP_GET, handleIndex);
+  for (const WebAsset& a : WEB_ASSETS) server.on(a.path, HTTP_GET, [&a]() { handleAsset(a); });
   server.on("/api/config", HTTP_GET, handleGetConfig);
   server.on("/api/config", HTTP_POST, handlePostConfig);
   server.on("/api/export", HTTP_GET, handleExport);

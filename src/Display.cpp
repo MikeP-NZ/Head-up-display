@@ -2,6 +2,8 @@
 
 #include <ESP32-HUB75-MatrixPanel-I2S-DMA.h>
 
+#include "Sm16380Panel.h"
+
 namespace {
 
 int8_t orderPin(char which, int8_t r, int8_t g, int8_t b) {
@@ -33,10 +35,25 @@ bool Display::begin(const Settings& s) {
   // Colour order is a pin swap: colorOrder[0] names the panel input that
   // receives the red channel, and so on.
   const char* o = s.colorOrder.c_str();
-  HUB75_I2S_CFG::i2s_pins pins = {
-      orderPin(o[0], p.r1, p.g1, p.b1), orderPin(o[1], p.r1, p.g1, p.b1), orderPin(o[2], p.r1, p.g1, p.b1),
-      orderPin(o[0], p.r2, p.g2, p.b2), orderPin(o[1], p.r2, p.g2, p.b2), orderPin(o[2], p.r2, p.g2, p.b2),
-      p.a, p.b, p.c, p.d, p.e, p.lat, p.oe, p.clk};
+  PanelPins q = p;
+  q.r1 = orderPin(o[0], p.r1, p.g1, p.b1);
+  q.g1 = orderPin(o[1], p.r1, p.g1, p.b1);
+  q.b1 = orderPin(o[2], p.r1, p.g1, p.b1);
+  q.r2 = orderPin(o[0], p.r2, p.g2, p.b2);
+  q.g2 = orderPin(o[1], p.r2, p.g2, p.b2);
+  q.b2 = orderPin(o[2], p.r2, p.g2, p.b2);
+
+  // The panel's DMA buffers are allocated before the canvas, while internal
+  // RAM is least fragmented.
+  if (s.driver == PanelDriver::SM16380) {
+    beginSm16380(s, q);
+    renderer_ = new Renderer(width, height);
+    shadow_ = static_cast<uint16_t*>(calloc(static_cast<size_t>(width) * height, sizeof(uint16_t)));
+    applySettings(s);
+    return panelOk();
+  }
+
+  HUB75_I2S_CFG::i2s_pins pins = {q.r1, q.g1, q.b1, q.r2, q.g2, q.b2, q.a, q.b, q.c, q.d, q.e, q.lat, q.oe, q.clk};
 
   // A four-scan (e.g. 1/8 scan) panel shifts out twice as many pixels per
   // row address as a standard one, so the driver sees it as twice as wide and
@@ -71,6 +88,30 @@ bool Display::begin(const Settings& s) {
   return matrix_ != nullptr;
 }
 
+bool Display::beginSm16380(const Settings& s, const PanelPins& pins) {
+  // Same folding as a four-scan HUB75 panel: e.g. 64x64 at 1/16 scan has
+  // two 64-pixel row blocks on each data line's 8-chip chain.
+  scan_ = s.scan;
+  panelWidth_ = s.panelWidth;
+  panelHeight_ = s.panelHeight;
+  const bool fourScan = scan_ != PanelScan::Standard;
+  Sm16380Panel::Config cfg;
+  cfg.pins = pins;
+  cfg.width = s.panelWidth * s.chain * (fourScan ? 2 : 1);
+  cfg.height = fourScan ? s.panelHeight / 2 : s.panelHeight;
+  cfg.profile = s.spwmProfile < sm16380::kProfileCount ? s.spwmProfile : 0;
+  cfg.grayBits = s.spwmGrayBits;
+  cfg.clkPhase = s.clkPhase;
+  cfg.speedMHz = s.i2sSpeedMHz;
+  spwm_ = new Sm16380Panel();
+  if (!spwm_->begin(cfg)) {
+    log_e("SM16380 init failed - check panel settings");
+    delete spwm_;
+    spwm_ = nullptr;
+  }
+  return spwm_ != nullptr;
+}
+
 void Display::applySettings(const Settings& s) {
   RenderStyle style;
   style.speedRgb = s.speedColor;
@@ -95,7 +136,13 @@ void Display::setNight(bool night) {
 }
 
 void Display::applyBrightness() {
-  if (matrix_) matrix_->setBrightness8(night_ ? nightBrightness_ : brightness_);
+  const uint8_t b = night_ ? nightBrightness_ : brightness_;
+  if (matrix_) matrix_->setBrightness8(b);
+  if (spwm_) {
+    // Brightness is part of the pixel data, so everything is redrawn.
+    spwm_->setBrightness(b);
+    fullRefresh_ = true;
+  }
 }
 
 // Panel (x, y) -> position in the DMA buffer. On a four-scan panel each row
@@ -119,7 +166,7 @@ void Display::mapPixel(uint16_t x, uint16_t y, int16_t& px, int16_t& py) const {
 }
 
 void Display::present() {
-  if (!matrix_ || !shadow_) return;
+  if ((!matrix_ && !spwm_) || !shadow_) return;
   const uint16_t* buf = renderer_->frame();
   uint16_t w = renderer_->width(), h = renderer_->height();
   for (uint16_t y = 0; y < h; y++) {
@@ -128,7 +175,11 @@ void Display::present() {
       if (fullRefresh_ || buf[i] != shadow_[i]) {
         int16_t px, py;
         mapPixel(x, y, px, py);
-        matrix_->drawPixel(px, py, buf[i]);
+        if (matrix_) {
+          matrix_->drawPixel(px, py, buf[i]);
+        } else {
+          spwm_->drawPixel(px, py, buf[i]);
+        }
         shadow_[i] = buf[i];
       }
     }

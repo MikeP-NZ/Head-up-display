@@ -6,9 +6,10 @@
 // Controller-board description, selected at build time (BOARD_* flag set by
 // the PlatformIO environment).
 
-// HUB75 driver chips supported by ESP32-HUB75-MatrixPanel-DMA, same order as
-// HUB75_I2S_CFG::shift_driver.
-enum class PanelDriver : uint8_t { ShiftReg = 0, FM6124, FM6126A, ICN2038S, MBI5124, DP3246 };
+// HUB75 driver chips. All but the last are handled by
+// ESP32-HUB75-MatrixPanel-DMA, in the same order as HUB75_I2S_CFG::shift_driver;
+// SM16380 (S-PWM with frame memory) has its own output, see Sm16380Panel.
+enum class PanelDriver : uint8_t { ShiftReg = 0, FM6124, FM6126A, ICN2038S, MBI5124, DP3246, SM16380 };
 
 struct PanelPins {
   int8_t r1, g1, b1, r2, g2, b2, a, b, c, d, e, lat, oe, clk;

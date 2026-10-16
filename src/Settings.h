@@ -36,6 +36,8 @@ struct Settings {
   DataProtocol protocol = DataProtocol::Auto;
   String host;  // empty = Wi-Fi gateway (the YD device when joined to its AP)
   uint16_t port = 1456;
+  // Demo mode: simulated boat data instead of the gateway (see DemoBoat.h).
+  bool demo = false;
 
   // Speed
   SourceMode sourceMode = SourceMode::PreferStw;
@@ -79,6 +81,8 @@ struct Settings {
   bool clkPhase = board().defaultClkPhase;
   uint8_t i2sSpeedMHz = 8;
   uint8_t latchBlanking = 1;
+  uint8_t spwmProfile = 0;  // SM16380 config register set, see Sm16380Wave.h
+  uint8_t spwmGrayBits = 16;
   String colorOrder = "RGB";
   PanelPins pins = board().defaultPins;  // boards without port selection
   String hubPort = board().defaultPort ? board().defaultPort : "";  // boards with several HUB75 outputs

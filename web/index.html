@@ -6,6 +6,14 @@
 <meta name="color-scheme" content="dark">
 <meta name="theme-color" content="#0e0e0e">
 <title>Head-Up Display</title>
+<!-- "Add to Home Screen": opens the portal full screen, like an app. -->
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
+<link rel="apple-touch-icon" href="/icon-180.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="Head-Up">
 <style>
 :root {
   /* Greyscale dark theme. Colour is reserved for status (ok / warn / error). */
@@ -177,6 +185,7 @@ code { font-family: var(--mono); font-size: 12.5px; background: var(--panel-2); 
 <main>
   <div class="banner offline" id="offline" hidden><p><b>Lost contact with the display.</b> It may be rebooting or switching Wi-Fi. Retrying…</p></div>
   <div class="banner" id="reboot-banner" hidden><p>Panel settings were saved and take effect after a reboot.</p><button class="btn primary" data-action="reboot">Reboot now</button></div>
+  <div class="banner" id="demo-banner" hidden><p><b>Demo mode.</b> The display is showing simulated data, not your instruments.</p><button class="btn" type="button" id="demo-off">Turn off</button></div>
 
   <!-- LIVE -->
   <section id="tab-live" role="tabpanel">
@@ -283,6 +292,12 @@ code { font-family: var(--mono); font-size: 12.5px; background: var(--panel-2); 
 
   <!-- DATA -->
   <section id="tab-data" role="tabpanel" hidden>
+    <div class="card">
+      <h2>Demo mode</h2>
+      <p class="sub">Shows a simulated sailing boat beating to windward, so the display can be demonstrated without instruments or a gateway. It tacks every 3 minutes, swinging about 45° either side of the wind, so the apparent wind changes sides. The panel flashes SIMULATED DATA over the values every 5 seconds, and the gateway connection is paused while it runs.</p>
+      <label class="check"><input type="checkbox" id="data-demo"> Show simulated data</label>
+    </div>
+
     <form class="card" id="form-data">
       <h2>Gateway data port</h2>
       <p class="sub">Where the display reads NMEA data from. Factory setting on Yacht Devices gateways: Server #1, TCP, port 1456, NMEA 0183.</p>
@@ -521,10 +536,10 @@ code { font-family: var(--mono); font-size: 12.5px; background: var(--panel-2); 
         <label class="field"><span>Scan rate</span>
           <select id="panel-scan">
             <option value="standard">Standard (1/16 on 32 px, 1/32 on 64 px)</option>
-            <option value="four">1/8 scan (32 px high)</option>
-            <option value="four-alt">1/8 scan, alternate row order</option>
+            <option value="four">1/8 scan (32 px high), or 1/16 on 64 px SM16380</option>
+            <option value="four-alt">Same, alternate row order</option>
           </select>
-          <div class="hint">Usually printed on the panel's back, e.g. P4-64x32-8S = 1/8. Rows doubled or in blocks? Try the alternate order.</div>
+          <div class="hint">Usually printed on the panel's back, e.g. P4-64x32-8S = 1/8. Rows doubled or in blocks? Try the alternate order. SM16380 panels: 16 driver chips per colour on 64x64 means 1/16.</div>
         </label>
         <label class="field"><span>Driver chip</span>
           <select id="panel-driver">
@@ -534,8 +549,20 @@ code { font-family: var(--mono); font-size: 12.5px; background: var(--panel-2); 
             <option value="ICN2038S">ICN2038S</option>
             <option value="MBI5124">MBI5124</option>
             <option value="DP3246">DP3246</option>
+            <option value="SM16380">SM16380SF / SC (S-PWM, e.g. with RUC7258D)</option>
           </select>
-          <div class="hint">Blank or garbled panel? Try FM6126A, then Generic.</div>
+          <div class="hint">Blank or garbled panel? Try FM6126A, then Generic. Panels with SM16380 chips need SM16380.</div>
+        </label>
+        <label class="field" data-spwm hidden><span>SM16380 register set</span>
+          <select id="panel-spwmProfile">
+            <option value="0">Captured settings</option>
+            <option value="1">REG1 only</option>
+          </select>
+          <div class="hint">Configuration sent to the driver chips. Ghosting or odd colours? Try REG1 only.</div>
+        </label>
+        <label class="field" data-spwm hidden><span>SM16380 grey levels</span>
+          <select id="panel-spwmGrayBits"><option value="16">16 bit</option><option value="14">14 bit</option></select>
+          <div class="hint">Try 14 bit if bright colours look dark or wrong.</div>
         </label>
         <label class="field"><span>Colour order</span>
           <select id="panel-colorOrder">
@@ -544,14 +571,15 @@ code { font-family: var(--mono); font-size: 12.5px; background: var(--panel-2); 
           <div class="hint">If the test pattern's RED shows another colour, change this.</div>
         </label>
         <label class="field"><span>Clock speed</span>
-          <select id="panel-i2sSpeed"><option value="8">8 MHz</option><option value="16">16 MHz</option><option value="20">20 MHz</option></select>
+          <select id="panel-i2sSpeed"><option value="2">2.5 MHz (SM16380 only)</option><option value="5">5 MHz (SM16380 only)</option><option value="8">8 MHz</option><option value="16">16 MHz</option><option value="20">20 MHz</option></select>
           <div class="hint">Lower it if you see ghosting or sparkles.</div>
         </label>
-        <label class="field"><span>Latch blanking</span><input type="number" id="panel-latchBlanking" min="1" max="4"></label>
+        <label class="field" data-hub75><span>Latch blanking</span><input type="number" id="panel-latchBlanking" min="1" max="4"></label>
         <div>
           <span class="field-label">Clock phase</span>
           <label class="check"><input type="checkbox" id="panel-clkPhase"> Clock data on the rising edge</label>
           <div class="hint" id="clk-hint"></div>
+          <div class="hint" data-spwm hidden>SM16380 panels need this unticked: ticked gives vertical ghosting and white blocks of columns.</div>
         </div>
       </div>
       <div id="port-block" hidden>
@@ -613,6 +641,26 @@ code { font-family: var(--mono); font-size: 12.5px; background: var(--panel-2); 
 'use strict';
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => Array.from(el.querySelectorAll(s));
+// Fingerprint of this page, filled in by scripts/embed_web.py when it is
+// built into the firmware. Left as the placeholder when served unbuilt (mock
+// device), which turns the reload check off.
+const PORTAL_BUILD = '__PORTAL_BUILD__';
+
+// After a firmware update the display serves a different portal page, but an
+// open browser tab keeps running the old one: load the new one. At most once
+// per build, so a page the browser keeps serving from cache can't loop.
+function reloadForNewPortal(build) {
+  if (!build || PORTAL_BUILD.startsWith('__') || build === PORTAL_BUILD) return false;
+  try {
+    if (sessionStorage.getItem('portalReload') === build) return false;
+    sessionStorage.setItem('portalReload', build);
+  } catch (e) {
+    return false;  // no way to remember the attempt: don't risk a loop
+  }
+  location.reload();
+  return true;
+}
+
 // The firmware sends the panel's unit labels (capitals, "o" for a degree
 // sign); the portal shows unit names and standard symbols instead.
 const UNIT_NAMES = { KN: 'knots', 'KM/H': 'km/h', MPH: 'mph', 'M/S': 'm/s', NM: 'nautical miles', KM: 'kilometres', MI: 'miles',
@@ -877,6 +925,9 @@ function fillForms() {
   $('#panel-chain').value = p.chain;
   $('#panel-scan').value = p.scan || 'standard';
   $('#panel-driver').value = p.driver;
+  $('#panel-spwmProfile').value = String(p.spwmProfile ?? 0);
+  $('#panel-spwmGrayBits').value = String(p.spwmGrayBits ?? 16);
+  syncDriverFields();
   $('#panel-colorOrder').value = p.colorOrder;
   $('#panel-i2sSpeed').value = String(p.i2sSpeed);
   $('#panel-latchBlanking').value = p.latchBlanking;
@@ -884,6 +935,7 @@ function fillForms() {
   for (const k of PIN_NAMES) $('#pin-' + k).value = p.pins[k];
 
   $('#reboot-banner').hidden = !c.rebootRequired;
+  $('#data-demo').checked = !!c.data.demo;
 }
 
 function syncOpen(prefix) {
@@ -1091,6 +1143,8 @@ $('#form-panel').addEventListener('submit', async (ev) => {
     i2sSpeed: Number($('#panel-i2sSpeed').value),
     latchBlanking: Number($('#panel-latchBlanking').value),
     clkPhase: $('#panel-clkPhase').checked,
+    spwmProfile: Number($('#panel-spwmProfile').value),
+    spwmGrayBits: Number($('#panel-spwmGrayBits').value),
   };
   if (cfg.board.ports.length) {
     panel.port = $('#panel-port').value;
@@ -1101,6 +1155,23 @@ $('#form-panel').addEventListener('submit', async (ev) => {
   const r = await save({ panel }, 'Saved — reboot to apply');
   if (r && !r.changed.panel) toast('Nothing changed');
 });
+function syncDriverFields() {
+  const spwm = $('#panel-driver').value === 'SM16380';
+  for (const el of document.querySelectorAll('[data-spwm]')) el.hidden = !spwm;
+  for (const el of document.querySelectorAll('[data-hub75]')) el.hidden = spwm;
+}
+$('#panel-driver').addEventListener('change', () => {
+  // SM16380 panels only work with data clocked on the falling edge.
+  if ($('#panel-driver').value === 'SM16380') $('#panel-clkPhase').checked = false;
+  syncDriverFields();
+});
+async function setDemo(on) {
+  const r = await save({ data: { demo: on } }, on ? 'Demo mode on' : 'Demo mode off');
+  $('#data-demo').checked = r ? on : !on;
+  if (r) $('#demo-banner').hidden = !on;
+}
+$('#data-demo').addEventListener('change', () => setDemo($('#data-demo').checked));
+$('#demo-off').addEventListener('click', () => setDemo(false));
 $('#pins-reset').addEventListener('click', () => { for (const k of PIN_NAMES) $('#pin-' + k).value = cfg.board.defaultPins[k]; });
 
 // ---------- actions ----------
@@ -1264,6 +1335,9 @@ function stepsFor(s) {
   const w = s.wifi, d = s.data;
   const steps = [];
   let hint;
+  if (d.state === 'demo') {
+    return [{ title: 'Demo mode', state: 'warn', hint: 'The display shows a simulated boat. Turn demo mode off on the Data tab to read the gateway.' }];
+  }
   if (w.connected) hint = `Joined “${w.ssid}” as ${w.ip} (signal ${w.rssi} dBm).`;
   else if (!w.configured) hint = 'Choose the gateway’s Wi-Fi network on the Wi-Fi tab.';
   else if (w.state === 'network_not_found') hint = `“${w.ssid}” is not in range. Is the gateway powered and its Wi-Fi in access point mode?`;
@@ -1335,7 +1409,7 @@ function renderStatus(s) {
   const d = s.data;
   const kv = [
     ['State', d.state.replace('_', ' ')],
-    ['Target', d.transport === 'udp' ? `UDP port ${d.port}` : `${d.host || 'gateway'} → ${d.remote || '?'}:${d.port}`],
+    ['Target', d.state === 'demo' ? 'Simulated boat (demo mode)' : d.transport === 'udp' ? `UDP port ${d.port}` : `${d.host || 'gateway'} → ${d.remote || '?'}:${d.port}`],
     ['Last error', d.lastError || '—'],
     ['Detected', d.detected ? (d.detected === 'raw' ? 'RAW (NMEA 2000)' : 'NMEA 0183') : '—'],
     ['Lines', `${d.lines} (${d.lineRate}/s) · last ${ago(d.lastLineAgo)} ago`],
@@ -1361,6 +1435,7 @@ function renderStatus(s) {
   $('#sys-kv').innerHTML = sys.map(([k, v]) => `<dt>${k}</dt><dd>${escapeHtml(v)}</dd>`).join('');
 
   $('#reboot-banner').hidden = !s.rebootRequired;
+  $('#demo-banner').hidden = s.data.state !== 'demo';
   fillFilterSelects();
   updateClockNote();
 }
@@ -1371,6 +1446,7 @@ async function pollStatus() {
   if (document.hidden) { statusTimer = setTimeout(pollStatus, 2000); return; }
   try {
     st = await api('/api/status', undefined, { timeout: 4000 });
+    if (reloadForNewPortal(st.portalBuild)) return;
     if (!online) {
       online = true;
       $('#offline').hidden = true;

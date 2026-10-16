@@ -7,6 +7,7 @@
 #include "LineDecoder.h"
 #include "Nmea0183.h"
 #include "BoatModel.h"
+#include "DemoBoat.h"
 #include "Items.h"
 #include "YdRaw.h"
 
@@ -704,6 +705,72 @@ static void test_distance_units() {
   TEST_ASSERT_EQUAL_STRING("NM", d.unit);
 }
 
+struct DemoFeed {
+  LineDecoder decoder;
+  BoatModel model;
+  uint32_t now = 0;
+};
+
+static void feedDemoLine(const char* line, void* ctx) {
+  DemoFeed* f = static_cast<DemoFeed*>(ctx);
+  f->decoder.feed(line, f->now, f->model);
+}
+
+// Every 0.5 s up to `untilMs`, as the firmware's demo mode does.
+static void runDemo(DemoBoat& boat, DemoFeed& f, uint32_t untilMs) {
+  for (; f.now <= untilMs; f.now += 500) boat.sentences(f.now, feedDemoLine, &f);
+}
+
+static void test_demo_boat_feeds_every_item_without_a_clock() {
+  DemoBoat boat;
+  DemoFeed f;
+  ModelConfig cfg;
+  cfg.smoothingSec = 0;
+  f.model.configure(cfg);
+  runDemo(boat, f, 30000);
+
+  const LineDecoder::Stats& st = f.decoder.stats();
+  TEST_ASSERT_GREATER_THAN(0, st.lines);
+  TEST_ASSERT_EQUAL(st.lines, st.nmeaLines);
+  TEST_ASSERT_EQUAL(0, st.badChecksum);
+  TEST_ASSERT_EQUAL(0, st.ignored);
+  int64_t epoch;
+  TEST_ASSERT_FALSE(f.decoder.takeTime(epoch));  // never sets the clock
+
+  for (size_t i = 1; i < kItemCount; i++) {
+    Item item = static_cast<Item>(i);
+    TEST_ASSERT_TRUE_MESSAGE(readItem(f.model, item, BearingRef::Magnetic, f.now).valid, itemInfo(item).label);
+  }
+}
+
+static void test_demo_boat_tacks_through_the_wind() {
+  DemoBoat boat;
+  DemoFeed f;
+  ModelConfig cfg;
+  cfg.smoothingSec = 0;
+  f.model.configure(cfg);
+
+  auto read = [&](Item item) { return readItem(f.model, item, BearingRef::Magnetic, f.now).value; };
+  // Mid-leg on each of three tacks: starboard, port, starboard.
+  runDemo(boat, f, 90000);
+  float awa1 = read(Item::Awa), hdg1 = read(Item::Hdg), twd1 = read(Item::Twd);
+  runDemo(boat, f, 270000);
+  float awa2 = read(Item::Awa), hdg2 = read(Item::Hdg), twd2 = read(Item::Twd);
+  runDemo(boat, f, 450000);
+  float awa3 = read(Item::Awa);
+
+  TEST_ASSERT_GREATER_THAN(15, awa1);  // wind from starboard
+  TEST_ASSERT_LESS_THAN(-15, awa2);    // wind from port
+  TEST_ASSERT_GREATER_THAN(15, awa3);
+  // About 45 degrees either side of the true wind.
+  TEST_ASSERT_FLOAT_WITHIN(8, 45, fmodf(twd1 - hdg1 + 360, 360));
+  TEST_ASSERT_FLOAT_WITHIN(8, 315, fmodf(twd2 - hdg2 + 360, 360));
+
+  // Head to wind halfway through a tack; slowest just after it.
+  TEST_ASSERT_FLOAT_WITHIN(6, 0, boat.at(DemoBoat::kLegMs + DemoBoat::kTackMs / 2).twa);
+  TEST_ASSERT_TRUE(boat.at(DemoBoat::kLegMs + DemoBoat::kTackMs).stw < boat.at(90000).stw - 1.5f);
+}
+
 int main(int, char**) {
   UNITY_BEGIN();
   RUN_TEST(test_vhw_knots);
@@ -755,5 +822,7 @@ int main(int, char**) {
   RUN_TEST(test_item_ids_and_quantities);
   RUN_TEST(test_item_formatting);
   RUN_TEST(test_distance_units);
+  RUN_TEST(test_demo_boat_feeds_every_item_without_a_clock);
+  RUN_TEST(test_demo_boat_tacks_through_the_wind);
   return UNITY_END();
 }
