@@ -175,7 +175,7 @@ code { font-family: var(--mono); font-size: 12.5px; background: var(--panel-2); 
     <button role="tab" data-tab="live" aria-selected="true">Live</button>
     <button role="tab" data-tab="wifi">Network</button>
     <button role="tab" data-tab="data">Source</button>
-    <button role="tab" data-tab="speed">Units</button>
+    <button role="tab" data-tab="speed">Data</button>
     <button role="tab" data-tab="display">Layout</button>
     <button role="tab" data-tab="panel">Hardware</button>
     <button role="tab" data-tab="system">System</button>
@@ -216,7 +216,7 @@ code { font-family: var(--mono); font-size: 12.5px; background: var(--panel-2); 
     </div>
     <div class="card">
       <h2>Data sources seen</h2>
-      <p class="sub">Every device on the bus that reported a value. With more than one speed sensor or GPS, pick one on the Units tab.</p>
+      <p class="sub">Every device on the bus that reported a value. With more than one speed sensor or GPS, pick one on the Data tab.</p>
       <div class="table-scroll">
         <table>
           <thead><tr><th>Source</th><th>Type</th><th>From</th><th>Value</th><th>Age</th><th>Msgs</th></tr></thead>
@@ -340,7 +340,7 @@ code { font-family: var(--mono); font-size: 12.5px; background: var(--panel-2); 
           <li>Open <b>NMEA Server</b>. Enable a server, choose TCP or UDP and a port, and set its data protocol to <b>NMEA 0183</b> or <b>RAW</b>.</li>
           <li>Prefer <b>UDP</b> if chart-plotter apps also use the gateway: a TCP server only accepts 3 connections, and UDP has no limit.</li>
           <li>For NMEA 0183, check that the transmit filter lets through the sentences for the values you want: <code>VHW</code> (speed through water, heading), <code>RMC</code>/<code>VTG</code> (GPS speed and course), <code>MWV</code> (wind), <code>MWD</code> (wind direction), <code>HDG</code>/<code>HDM</code> (heading), <code>DPT</code>/<code>DBT</code> (depth), <code>RMB</code>/<code>BWC</code> (waypoint distance and bearing) and <code>VPW</code> (VMG) and <code>MTW</code> (water temperature).</li>
-          <li>RAW carries the NMEA 2000 messages directly (PGN 128259 speed, 129026 GPS speed and course, 130306 wind, 127250 heading, 127258 variation, 128267 depth, 129284 waypoint, 130310/130311/130312/130316 water temperature), so no filters are involved. VMG to wind has no standard NMEA 2000 message; the display can calculate it (Units tab), or use NMEA 0183 <code>VPW</code>.</li>
+          <li>RAW carries the NMEA 2000 messages directly (PGN 128259 speed, 129026 GPS speed and course, 130306 wind, 127250 heading, 127258 variation, 128267 depth, 129284 waypoint, 130310/130311/130312/130316 water temperature), so no filters are involved. VMG to wind has no standard NMEA 2000 message; the display can calculate it (Data tab), or use NMEA 0183 <code>VPW</code>.</li>
         </ol>
       </details>
       <div class="actions"><button class="btn primary" type="submit">Save &amp; reconnect</button></div>
@@ -366,7 +366,7 @@ code { font-family: var(--mono); font-size: 12.5px; background: var(--panel-2); 
   <!-- SPEED -->
   <section id="tab-speed" role="tabpanel" hidden>
     <form class="card" id="form-speed">
-      <h2>Units</h2>
+      <h2>Item Display</h2>
       <div class="grid">
         <label class="field"><span>Speed units</span>
           <select id="speed-unit">
@@ -490,7 +490,7 @@ code { font-family: var(--mono); font-size: 12.5px; background: var(--panel-2); 
         <div class="hint" id="layout-hint"></div>
       </div>
       <div class="sections" id="section-pickers"></div>
-      <div class="hint">Wind angles show 0–180° with &lt;&lt;&lt; (port, red) or &gt;&gt;&gt; (starboard, green); &lt;&lt; / &gt;&gt; in sections. Headings, course, bearing and wind direction are true or magnetic as set on the Units tab. Short distances show as whole numbers. Sections without data show dashes.</div>
+      <div class="hint">Wind angles show 0–180° with &lt;&lt;&lt; (port, red) or &gt;&gt;&gt; (starboard, green); &lt;&lt; / &gt;&gt; in sections. Headings, course, bearing and wind direction are true or magnetic as set on the Data tab. Short distances show as whole numbers. Sections without data show dashes.</div>
     </form>
 
     <form class="card" id="form-display">
