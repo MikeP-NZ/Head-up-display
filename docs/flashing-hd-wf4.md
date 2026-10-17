@@ -5,8 +5,8 @@ next to the antenna before you start: it should read `ESP32-S3`. Older WF4
 revisions (spec v6) use a different processor and cannot run this firmware.
 
 The pin map and flashing details come from community reverse engineering of the
-board (see [Sources](#sources)). They have not been verified on hardware by this
-project yet, so do the backup step: it is your way back to the stock firmware.
+board (see [Sources](#sources)). They have been verified on hardware by this
+project, but still do the backup step: it is your way back to the stock firmware.
 
 ## Why not a USB drive?
 
@@ -40,9 +40,12 @@ of a stick. That socket is wired straight to the ESP32-S3's built-in USB.
 1. Unplug the LED panels. This is optional, but makes it easier to tell what's going on.
 2. Connect the USB cable between the board and the computer.
 3. Enter download mode in one of these ways:
-   - **A (try first):** hold **S1** while you switch on the 5 V supply, then release it.
+   - **A (try first):** hold **S1** while you switch on the 5 V supply, then release it.(didn't work for me)
    - **B (always works):** bridge the two **P2** pads with a jumper wire or tweezers, and also bridge **S4**. Switch on the power while they are bridged, then remove the bridge.
 4. Check that the board shows up:
+
+I soldered a 2-pin header into both P2 and S4 and had to fit a jumper to both when I wanted to re-flash the firmware.  That
+provided the motivation to add upload over wifi to this project.
 
    ```bash
    ls /dev/cu.usbmodem*      # macOS

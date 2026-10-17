@@ -1,11 +1,26 @@
 # Head-UP Marine Instrument Display
 
-Displays a wide variety of boat speed, wind, heading, depth or navigation data
-on a HUB75 LED matrix panel (64×64, 64×32 or chained), one value full-screen
-or 2 or 4 at a time, read over Wi-Fi from an NMEA 2000 gateway (e.g. Yacht Devices YDWG-02,
+This project uses readily available RGB Matrix panels and ESP32 driver boards to provide a large daylight readable display of key navigation or performance data.
+Racing yachts often have large displays mounted on the mast showing aparent wind angle and boat speed where everyone onboard can see them. This also helps the crew to keep their focus outside the cockpit, improving situational awareness and safety.
+
+This project was completely coded by Claude. I just told it what I wanted to change and tried in vane to keep up.
+I have tested the code on all 3 target boards and also with a few different LED Matrix panels.
+I've added this paragraph so that you don't think I did it all myself.
+
+The project receives performance and navigational data via Wifi from the ships instruments and displays it in large clear numerals. It can handle all the usual sailing performance numbers. Such as boat speed and heading, wind speed and angles, depth and navigation data.
+
+It is designed to use one or more of the HUB75 LED matrix panels that are available.
+These are usually 64×64 or 64×32 pixels and multiple panels can be chained off a single controller.
+Obviously for a marine environment you'll want to use the "outdoor" panels or come up with some way to make them
+waterproof.
+
+You can display one value full-screen or 2 or 4 values at a time
+Data is read over Wi-Fi from an NMEA 2000 gateway such as Yacht Devices YDWG-02,
 YDNR-02, Hat Labs SH-wg, or anything else that serves NMEA 0183 or YD RAW on a
-TCP/UDP port, such as a B&G chart plotter).
-Everything is set up from a web portal on your phone. No app or cloud is involved.
+TCP/UDP port. Some chart plotters, such as a B&G Zeus and Vulcan have this feature built-in.
+Everything is set up from a web portal. Just visit the page on your phone, ipad or a laptop. No app or cloud is involved.
+
+Below are some preview images of a 64x64 panel and some 64x32 panel in portrait and landscape orientation. 32 pixels wide is about as small as you can go for usable data display.
 
 ![Panel screens](docs/panel/contact_sheet.png)
 
@@ -15,15 +30,15 @@ Everything is set up from a web portal on your phone. No app or cloud is involve
 |---|---|---|
 | Waveshare **ESP32-S3-RGB-Matrix** | `waveshare_s3_matrix` (default) | 32 MB octal flash, 16 MB PSRAM, one HUB75 output |
 | Huidu **HD-WF4** (v7.x, ESP32-S3) | `huidu_hd_wf4` | 8 MB flash, no PSRAM, four HUB75 outputs in two pairs. See the [HD-WF4 flashing guide](docs/flashing-hd-wf4.md) |
-| Adafruit **Matrix Portal S3** (5778) | `matrixportal_s3` | 8 MB flash, 2 MB PSRAM, one HUB75 socket. For 64×64 panels solder the E jumper to pin 8 |
+| Adafruit **Matrix Portal S3** (5778) | `matrixportal_s3` | 8 MB flash, 2 MB PSRAM, one HUB75 socket. For 64×64 panels Check that the jumper for E is linked to pin 8 |
 
 Plus:
 
 - A HUB75 RGB LED panel: 64×64, 64×32, or chained panels (setup in the portal)
-- A 5 V supply sized for the panel. A 64×64 panel at full white draws several amps, so USB power alone is only good for a dim bench test.
+- A 5 V supply sized for the panel. A 64×64 panel at full white draws several amps, so USB power alone is only good for a dim bench test. A power bank or externally supplied 12v with a 12->5v buck converter are good choices.
 
-Each board has its own firmware image, because their flash layouts differ.
-Over-the-air updates refuse an image built for a different board.
+Each board requires a different firmware image, because their flash layouts differ. So make sure you build the correct image for your board type.
+Over-the-air updates will refuse an image built for a different board.
 
 ## How it works
 
@@ -33,8 +48,11 @@ NMEA 2000 bus ─▶ NMEA 2000 gateway ──Wi-Fi──▶ ESP32-S3 ──HUB75
                  NMEA 0183 or RAW                 network as a client
 ```
 
-The display joins the gateway's Wi-Fi network and reads its NMEA server port.
-It understands both data protocols Yacht Devices gateways offer:
+The display can connect direclty to the gateway's own Wi-Fi network or, if
+the boat has a router, both the gateway device and the display can connect to the router.
+The display can understand both NMEA0183 or Yacht Devices YDRaw protocols. You can specify
+which protocol to read or *Auto* accepts either.
+The display will accept the following message types:
 
 | Value | NMEA 0183 | YD RAW (NMEA 2000) |
 |---|---|---|
@@ -53,27 +71,27 @@ It understands both data protocols Yacht Devices gateways offer:
 | MTW water temperature | `MTW` | PGN 130310, 130311, 130312, 130316 (sea temperature) |
 | Clock (night schedule) | `RMC`, `ZDA` | PGN 126992 |
 
-Bearings (HDG, COG, BTW, TWD) are shown **magnetic** or **true**, as chosen on
+Bearings (HDG, COG, BTW, TWD) can be displayed as **magnetic** or **true**, as chosen on
 the Data tab. A value sent in the other reference is converted with the
 magnetic variation from `RMC`/`HDG` or PGN 127250/127258. If your system doesn't
-send a variation, set a default one on the Data tab; without either, such a
+send a variation, set a default variation for your area on the Data tab; without either, such a
 value is not shown.
 
-TWA, TWS, TWD and VMG can be calculated on the display when the instruments
-don't send them. On the Data tab, choose *Only use received values*,
+TWA, TWS, TWD and VMG can be calculated on the display if they aren't available from 
+the instruments. On the Data tab, you can choose *Only use received values*,
 *Calculate missing values* (the default) or *Only use calculated values*:
 
-- **TWA and TWS** come from the apparent wind (AWA, AWS) and the boat speed
+- **TWA and TWS** are calculated from the apparent wind (AWA, AWS) and the boat speed
   picked by the Data tab's *Speed source* (STW or SOG).
-- **TWD** is the heading plus TWA. *Heading for TWD* picks HDG (wind over the
-  water) or COG (wind over the ground, best with SOG as the speed source).
+- **TWD** is the boat's heading plus TWA. *Heading for TWD* You can pick HDG(from compass)
+ or COG(from GPS) to use for this calculation.
 - **VMG** is the boat speed times cos(TWA).
 
 TWD and VMG use the TWA that is shown, received or calculated. The Live tab
 marks calculated values.
 
-*Auto* accepts either. With several sensors on the bus you can choose which
-device to trust, either by NMEA 2000 source address (RAW) or by talker ID (0183).
+When multiple devices on the bus are sending the same data (eg. multiple GPS receivers) you can
+choose which device's data to display, either by NMEA 2000 source address (RAW) or by talker ID (0183).
 
 The display also runs its own Wi-Fi network for the setup portal at
 `http://192.168.71.1`. That network deliberately avoids 192.168.4.x, which the
@@ -82,8 +100,8 @@ reachable at `http://headup.local` or the display's IP address.
 
 ## Flashing
 
-**Huidu HD-WF4:** follow [docs/flashing-hd-wf4.md](docs/flashing-hd-wf4.md). It
-flashes through its USB-A socket, and the guide covers backing up Huidu's
+**Huidu HD-WF4:** follow [docs/flashing-hd-wf4.md](docs/flashing-hd-wf4.md). This board
+flashes firmware through its USB-A socket, and the guide covers backing up Huidu's
 firmware first.
 
 **Waveshare ESP32-S3-RGB-Matrix** or **Adafruit Matrix Portal S3:**
@@ -176,15 +194,15 @@ Set the user environment variable `UV_SYSTEM_CERTS` to `1` and restart VS Code.
    networks are tagged **YD**. For an open network, tick *Open network*;
    otherwise enter its password. Press **Save & connect**.
 4. Check the **Live** tab. The setup checklist turns green step by step, and
-   the panel shows the speed (or whatever the Layout tab selects):
+   the simulated panel shows the speed (or whatever the Layout tab selects):
 
    1. Join the boat Wi-Fi
    2. Reach the gateway
    3. Receive NMEA data
    4. Find instrument data
 
-With a gateway on factory settings, nothing else needs changing. The display
-defaults to TCP, port 1456, *Automatic* gateway address, and *Auto* protocol,
+With a Yacht Devices gateway on factory settings, nothing else needs changing.
+The display defaults to TCP, port 1456, *Automatic* gateway address, and *Auto* protocol,
 which matches Server #1 out of the box.
 
 ### Portal on your phone's home screen
@@ -196,12 +214,12 @@ Open it from the address you normally use, such as `http://headup.local`, then:
   screen, like an app.
 - **Android (Chrome):** ⋮ → **Add to Home screen**. It opens in a browser tab.
 
-The icon only works while the phone is on the network it was added from. One
+The icon only works while the phone is connected to the same wifi network as the display. One
 added from the setup network (`192.168.71.1`) needs that network.
 
 ### Gateway settings worth knowing
 
-Configure these in the gateway's own web page, `http://192.168.4.1` (login
+Configure these in the Yacht Devices gateway's own web page, `http://192.168.4.1` (login
 `admin` / `admin` unless changed), under **NMEA Server**:
 
 - **TCP allows 3 clients per server port.** If chart-plotter apps already use
@@ -272,7 +290,7 @@ Each section has a label top left (`STW`, `AWA`, …), the unit top right,
 and the value below. Labels and units use a 5×7 font where the section has
 room for it without shrinking the digits much (for example 32×32 sections),
 and a tiny 3×5 font otherwise. All sections on screen use the same sizes.
-Wind angles show 0–180° with **P**/**S**, the digits
+Wind angles show 0–180° with arrows **<<**/**>>** for port or starboard, the digits
 tinted red for port and green for starboard (single colour in night mode).
 Headings and TWD show three digits (`005`). Sections without data show
 dashes. While Wi-Fi, the gateway link or the data stream is down, the panel
