@@ -15,8 +15,8 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
       - run: pip install platformio
@@ -29,11 +29,11 @@ jobs:
       matrix:
         env: [waveshare_s3_matrix, huidu_hd_wf4, matrixportal_s3]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: ~/.platformio
           key: pio-${{ matrix.env }}-${{ hashFiles('platformio.ini') }}
@@ -44,7 +44,7 @@ jobs:
           version=$(sed -n 's/.*FW_VERSION=\\"\([^\\]*\)\\".*/\1/p' platformio.ini)
           mkdir dist
           cp .pio/build/${{ matrix.env }}/firmware.bin dist/headup-${{ matrix.env }}-$version.bin
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: firmware-${{ matrix.env }}
           path: dist/*.bin
@@ -56,7 +56,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Check the tag matches FW_VERSION and get its changelog notes
         run: |
           version=$(sed -n 's/.*FW_VERSION=\\"\([^\\]*\)\\".*/\1/p' platformio.ini)
@@ -68,11 +68,11 @@ jobs:
           awk -v v="$version" '
             /^## / { on = index($0, "[" v "]") > 0; next }
             on' CHANGELOG.md > notes.md
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           path: dist
           merge-multiple: true
-      - uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@v3
         with:
           body_path: notes.md
           files: |
