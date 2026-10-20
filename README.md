@@ -137,7 +137,10 @@ firmware first.
 The web portal is compiled into the firmware (`scripts/embed_web.py` gzips
 `web/index.html` on every build), so there is no filesystem image to upload.
 Later updates can be uploaded from the portal's **System** tab: pick
-`.pio/build/<environment>/firmware.bin` for your board. After any update, a
+`.pio/build/<environment>/firmware.bin` for your board, or download a ready-built
+`headup-<environment>-<version>.bin` from the
+[Releases](https://github.com/MikeP-NZ/Head-up-display/releases) page (changes
+are listed in [CHANGELOG.md](CHANGELOG.md)). After any update, a
 portal left open in a browser reloads itself once the display is back, if the
 update changed the portal page.
 
@@ -423,6 +426,25 @@ tools\decode\build.ps1
 python tools\stream.py 192.168.4.1 1456 | tools\decode\decode.exe
 python tools\stream.py --udp 1457 | tools\decode\decode.exe   # UDP server
 ```
+
+### Releases
+
+GitHub Actions ([.github/workflows/build.yml](.github/workflows/build.yml))
+builds every board and runs the unit tests on each push and pull request. To
+publish a release:
+
+1. Bump `FW_VERSION` in `platformio.ini`, following [semantic versioning](https://semver.org/).
+2. Add a section for the version to [CHANGELOG.md](CHANGELOG.md) and commit.
+3. Tag the commit and push the tag:
+
+   ```bash
+   git tag -a v1.2.0 -m "v1.2.0"
+   git push origin v1.2.0
+   ```
+
+The workflow checks the tag matches `FW_VERSION`, then creates the GitHub
+Release with the changelog section as its notes and each board's
+`firmware.bin` attached.
 
 ### Layout
 

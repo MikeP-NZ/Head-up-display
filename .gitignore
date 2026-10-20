@@ -6,3 +6,5 @@ tools/preview/preview
 *.exe
 __pycache__/
 *.bak
+.venv/
+.claude/
