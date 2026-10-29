@@ -165,6 +165,23 @@ void test_104_wide_skip_list() {
   bad = l;
   bad.skip[7] = 112;  // past the row block
   TEST_ASSERT_FALSE(bad.valid());
+
+  // A list left over after switching to a layout it doesn't apply to is
+  // ignored, not an error.
+  Layout p4 = l;
+  p4.width = 80;
+  p4.height = 40;
+  TEST_ASSERT_TRUE(p4.valid());
+  TEST_ASSERT_EQUAL(80, p4.blockWidth());
+  TEST_ASSERT_EQUAL(79, p4.outputOf(79));
+  Layout zigzag = l;
+  zigzag.chunk = 8;
+  TEST_ASSERT_TRUE(zigzag.valid());
+  TEST_ASSERT_EQUAL(208, zigzag.driverWidth());
+  Layout off = l;
+  off.chipPad = false;
+  TEST_ASSERT_TRUE(off.valid());
+  TEST_ASSERT_EQUAL(208, off.driverWidth());
 }
 
 void test_other_sizes() {

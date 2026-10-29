@@ -41,7 +41,10 @@ struct Layout {
 
   uint16_t blocks() const { return rowsLit / 2; }
   uint16_t blockRows() const { return height / rowsLit; }
-  bool padded() const { return chipPad && !chunk; }
+  // Only whole-row chains on widths that leave a chip partly unused; anywhere
+  // else the skip list is ignored (and not checked), so a list left over from
+  // another width or layout never blocks saving.
+  bool padded() const { return chipPad && !chunk && width % kChipOutputs != 0; }
   // Driver outputs per row block, including unused ones.
   uint16_t blockWidth() const {
     if (!padded()) return width;
@@ -61,10 +64,12 @@ struct Layout {
   uint16_t driverWidth() const { return blockWidth() * blocks(); }
   uint16_t driverHeight() const { return height * 2 / rowsLit; }
   bool valid() const {
-    for (uint8_t i = 1; i < skipCount; i++) {
-      if (skip[i] <= skip[i - 1]) return false;
+    if (padded()) {
+      for (uint8_t i = 1; i < skipCount; i++) {
+        if (skip[i] <= skip[i - 1]) return false;
+      }
+      if (skipCount > kMaxSkip || (skipCount && skip[skipCount - 1] >= width + skipCount)) return false;
     }
-    if (skipCount > kMaxSkip || (skipCount && skip[skipCount - 1] >= width + skipCount)) return false;
     return (rowsLit == 2 || rowsLit == 4 || rowsLit == 8) && height % rowsLit == 0 &&
            (chunk == 0 || width % chunk == 0);
   }

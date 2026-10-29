@@ -418,8 +418,11 @@ bool settingsMergeJson(Settings& s, JsonObjectConst root, SettingsChanges& chang
       m.fail("scan", (String("needs a panel height divisible by ") + layout.rowsLit).c_str());
     }
     if (n.scanChunk != 0 && n.panelWidth % n.scanChunk != 0) m.fail("scanChunk", "must divide the panel width");
+    // Only checked when it's used: a list left from another width or layout
+    // stays saved but is ignored.
     panelmap::Layout skipCheck = layout;
-    if (!parseChipSkip(n.chipSkip, skipCheck) || !skipCheck.valid()) {
+    const bool skipParsed = parseChipSkip(n.chipSkip, skipCheck);
+    if (skipCheck.padded() && (!skipParsed || !skipCheck.valid())) {
       m.fail("unused chip outputs", "must be up to 16 rising numbers below the panel width plus their count");
     }
     const bool slowClock = spwm && (n.i2sSpeedMHz == 2 || n.i2sSpeedMHz == 5);
