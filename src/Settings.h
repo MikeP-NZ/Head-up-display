@@ -7,18 +7,20 @@
 #include "BoatModel.h"
 #include "Items.h"
 #include "LineDecoder.h"
+#include "PanelMap.h"
 
 enum class ApMode : uint8_t { Always = 0, Fallback = 1 };
 enum class Transport : uint8_t { Tcp = 0, Udp = 1 };
 enum class NightMode : uint8_t { Off = 0, On = 1, Schedule = 2 };
 
-// How the panel's rows are multiplexed.
-//   Standard: two rows lit at once (1/16 scan on a 32 px high panel, 1/32 on 64 px).
-//   FourScan: four rows lit at once (1/8 scan on 32 px, 1/4 on 16 px). These
-//             panels only use address lines A-C (or A-B) and need the pixel
-//             data remapped. FourScanAlt is the same with the other 8-row
-//             block order, which some panels use.
-enum class PanelScan : uint8_t { Standard = 0, FourScan = 1, FourScanAlt = 2 };
+// How the panel's rows are multiplexed: how many rows each row address
+// lights, so the scan rate is 1/(height / rows lit).
+//   Standard:  two rows (1/16 scan on a 32 px high panel, 1/32 on 64 px).
+//   FourScan:  four rows (1/8 on 32 px, 1/10 on 40 px, 1/13 on 52 px).
+//   EightScan: eight rows (1/2 on 16 px).
+// Four and eight need the pixel data remapped (see PanelMap.h). The Alt
+// variants fill the row blocks in the other order, which some panels use.
+enum class PanelScan : uint8_t { Standard = 0, FourScan = 1, FourScanAlt = 2, EightScan = 3, EightScanAlt = 4 };
 
 struct Settings {
   // Boat Wi-Fi (the Yacht Devices access point, or the boat router)
@@ -82,6 +84,9 @@ struct Settings {
   uint16_t panelHeight = 64;
   uint8_t chain = 1;
   PanelScan scan = PanelScan::Standard;
+  uint8_t scanChunk = 0;  // columns per zig-zag between row blocks; 0 = whole row
+  bool chipPad = true;    // pad row blocks to whole 16-output driver chips (PanelMap.h)
+  String chipSkip;        // unused outputs per row block, e.g. "15,31,47"; empty = at the end
   PanelDriver driver = board().defaultDriver;
   bool clkPhase = board().defaultClkPhase;
   uint8_t i2sSpeedMHz = 8;
@@ -92,6 +97,7 @@ struct Settings {
   PanelPins pins = board().defaultPins;  // boards without port selection
   String hubPort = board().defaultPort ? board().defaultPort : "";  // boards with several HUB75 outputs
 
+  panelmap::Layout panelLayout() const;
   ModelConfig modelConfig() const;
   DisplayUnits displayUnits() const;
   String effectiveApSsid() const;

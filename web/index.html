@@ -546,7 +546,7 @@ code { font-family: var(--mono); font-size: 12.5px; background: var(--panel-2); 
         <button class="btn" type="button" data-action="test-pattern">Show test pattern</button>
         <button class="btn" type="button" data-action="info">Show connection info on panel</button>
       </div>
-      <div class="hint">The test pattern cycles red, green, blue and white, then colour bars with a marker in the top-left corner. Use it to check the Hardware settings.</div>
+      <div class="hint">The test pattern cycles red, green, blue and white, then colour bars with a marker in the top-left corner, then a scan test: red, green, blue and white bands, each with a row of bars that get 1 px taller every 8 columns. Use it to check the Hardware settings; if the scan test looks scrambled, a photo of it shows how the panel is wired.</div>
     </div>
   </section>
 
@@ -561,11 +561,32 @@ code { font-family: var(--mono); font-size: 12.5px; background: var(--panel-2); 
         <label class="field"><span>Panels chained</span><input type="number" id="panel-chain" min="1" max="4"></label>
         <label class="field"><span>Scan rate</span>
           <select id="panel-scan">
-            <option value="standard">Standard (1/16 on 32 px, 1/32 on 64 px)</option>
-            <option value="four">1/8 scan (32 px high), or 1/16 on 64 px SM16380</option>
-            <option value="four-alt">Same, alternate row order</option>
+            <option value="standard"></option>
+            <option value="four"></option>
+            <option value="four-alt"></option>
+            <option value="eight"></option>
+            <option value="eight-alt"></option>
           </select>
-          <div class="hint">Usually printed on the panel's back, e.g. P4-64x32-8S = 1/8. Rows doubled or in blocks? Try the alternate order. SM16380 panels: 16 driver chips per colour on 64x64 means 1/16.</div>
+          <div class="hint">The choices follow the panel height. The scan is usually printed on the panel's back, e.g. P4-80x40-10S = 1/10. Rows doubled or in blocks? Try the other block order. SM16380 panels: 16 driver chips per colour on 64x64 means 1/16.</div>
+        </label>
+        <label class="field" data-multirow hidden><span>Column blocks</span>
+          <select id="panel-scanChunk">
+            <option value="0">Whole row (most panels)</option>
+            <option value="32">32 px</option>
+            <option value="16">16 px</option>
+            <option value="8">8 px</option>
+            <option value="4">4 px</option>
+          </select>
+          <div class="hint">How many columns the panel fills in one row block before moving to the next. Test pattern shows short dashes or stripes in the wrong rows? Try 16, then 8.</div>
+        </label>
+        <div id="chip-pad-field" hidden>
+          <span class="field-label">Driver chips</span>
+          <label class="check"><input type="checkbox" id="panel-chipPad"> Skip the unused chip outputs</label>
+          <div class="hint">This width isn't a multiple of the 16-output driver chips, so some chip outputs have no LED (104 px uses 7 chips, 112 outputs). Untick only if the picture is shifted sideways with it ticked.</div>
+        </div>
+        <label class="field" id="chip-skip-field" hidden><span>Unused chip outputs</span>
+          <input type="text" id="panel-chipSkip" inputmode="numeric" placeholder="Blank: the last ones in each row">
+          <div class="hint">Which outputs have no LED, counted from 0 along a row: e.g. 15,31,47,48,63,64,80,96 for the P3.076 104x52 panel. The test pattern's column code (from 24 s) shows each column's number in binary, bit 0 at the top: the numbers that never appear are the unused outputs.</div>
         </label>
         <label class="field"><span>Driver chip</span>
           <select id="panel-driver">
@@ -953,7 +974,12 @@ function fillForms() {
   $('#panel-width').value = p.width;
   $('#panel-height').value = p.height;
   $('#panel-chain').value = p.chain;
+  $('#panel-scanChunk').value = String(p.scanChunk ?? 0);
+  $('#panel-chipPad').checked = p.chipPad ?? true;
+  $('#panel-chipSkip').value = p.chipSkip || '';
+  syncScanOptions();
   $('#panel-scan').value = p.scan || 'standard';
+  syncScanFields();
   $('#panel-driver').value = p.driver;
   $('#panel-spwmProfile').value = String(p.spwmProfile ?? 0);
   $('#panel-spwmGrayBits').value = String(p.spwmGrayBits ?? 16);
@@ -1174,6 +1200,9 @@ $('#form-panel').addEventListener('submit', async (ev) => {
     height: Number($('#panel-height').value),
     chain: Number($('#panel-chain').value),
     scan: $('#panel-scan').value,
+    scanChunk: Number($('#panel-scanChunk').value),
+    chipPad: $('#panel-chipPad').checked,
+    chipSkip: $('#panel-chipSkip').value.trim(),
     driver: $('#panel-driver').value,
     colorOrder: $('#panel-colorOrder').value,
     i2sSpeed: Number($('#panel-i2sSpeed').value),
@@ -1191,6 +1220,38 @@ $('#form-panel').addEventListener('submit', async (ev) => {
   const r = await save({ panel }, 'Saved — reboot to apply');
   if (r && !r.changed.panel) toast('Nothing changed');
 });
+// Scan choices worked out from the panel height: each lights 2, 4 or 8 rows
+// per row address, so the scan rate is 1/(height / rows).
+const SCAN_ROWS = { standard: 2, four: 4, 'four-alt': 4, eight: 8, 'eight-alt': 8 };
+function syncScanOptions() {
+  const h = Number($('#panel-height').value);
+  for (const o of $('#panel-scan').options) {
+    const rows = SCAN_ROWS[o.value];
+    const fits = h > 0 && h % rows === 0;
+    const rate = fits ? `1/${h / rows} scan` : `Needs a height divisible by ${rows}`;
+    const alt = o.value.endsWith('-alt') ? ', other block order' : '';
+    o.textContent = `${rate} (${rows} rows per address${o.value === 'standard' ? ', standard' : ''})${alt}`;
+    o.disabled = !fits;
+  }
+  // Pixel widths the column blocks can divide.
+  const w = Number($('#panel-width').value);
+  for (const o of $('#panel-scanChunk').options) o.disabled = o.value !== '0' && !(w > 0 && w % Number(o.value) === 0);
+  syncScanFields();
+}
+function syncScanFields() {
+  const multi = SCAN_ROWS[$('#panel-scan').value] > 2;
+  for (const el of document.querySelectorAll('[data-multirow]')) el.hidden = !multi;
+  // Padding only applies to whole-row chains on widths that leave a chip partly unused.
+  const w = Number($('#panel-width').value);
+  const wholeRow = !multi || $('#panel-scanChunk').value === '0';
+  $('#chip-pad-field').hidden = !(w > 0 && w % 16 !== 0 && wholeRow);
+  $('#chip-skip-field').hidden = $('#chip-pad-field').hidden || !$('#panel-chipPad').checked;
+}
+$('#panel-chipPad').addEventListener('change', syncScanFields);
+$('#panel-height').addEventListener('input', syncScanOptions);
+$('#panel-width').addEventListener('input', syncScanOptions);
+$('#panel-scan').addEventListener('change', syncScanFields);
+$('#panel-scanChunk').addEventListener('change', syncScanFields);
 function syncDriverFields() {
   const spwm = $('#panel-driver').value === 'SM16380';
   for (const el of document.querySelectorAll('[data-spwm]')) el.hidden = !spwm;

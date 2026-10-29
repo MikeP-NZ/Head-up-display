@@ -24,7 +24,6 @@ class Display {
 
  private:
   void applyBrightness();
-  void mapPixel(uint16_t x, uint16_t y, int16_t& px, int16_t& py) const;
   bool beginSm16380(const Settings& s, const PanelPins& pins);
 
   MatrixPanel_I2S_DMA* matrix_ = nullptr;
@@ -35,7 +34,5 @@ class Display {
   bool night_ = false;
   uint8_t brightness_ = 160;
   uint8_t nightBrightness_ = 24;
-  PanelScan scan_ = PanelScan::Standard;
-  uint16_t panelWidth_ = 64;
-  uint16_t panelHeight_ = 32;
+  panelmap::Layout layout_;
 };

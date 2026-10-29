@@ -55,16 +55,15 @@ bool Display::begin(const Settings& s) {
 
   HUB75_I2S_CFG::i2s_pins pins = {q.r1, q.g1, q.b1, q.r2, q.g2, q.b2, q.a, q.b, q.c, q.d, q.e, q.lat, q.oe, q.clk};
 
-  // A four-scan (e.g. 1/8 scan) panel shifts out twice as many pixels per
-  // row address as a standard one, so the driver sees it as twice as wide and
-  // half as high; mapPixel() folds the real image into that layout.
-  scan_ = s.scan;
-  panelWidth_ = s.panelWidth;
-  panelHeight_ = s.panelHeight;
-  const bool fourScan = scan_ != PanelScan::Standard;
-  HUB75_I2S_CFG cfg(fourScan ? s.panelWidth * 2 : s.panelWidth, fourScan ? s.panelHeight / 2 : s.panelHeight,
-                    s.chain, pins);
-  if (fourScan) log_i("HUB75 four-scan mapping (1/%u scan)", static_cast<unsigned>(s.panelHeight / 4));
+  // A panel that lights 4 or 8 rows per row address shifts out more pixels
+  // per address than a standard one, so the driver sees it as wider and less
+  // high; present() folds the real image into that layout (PanelMap.h).
+  layout_ = s.panelLayout();
+  HUB75_I2S_CFG cfg(layout_.driverWidth(), layout_.driverHeight(), s.chain, pins);
+  if (layout_.rowsLit > 2) {
+    log_i("HUB75 %u rows per address (1/%u scan), %ux%u per panel to the driver", layout_.rowsLit,
+          static_cast<unsigned>(layout_.height / layout_.rowsLit), layout_.driverWidth(), layout_.driverHeight());
+  }
   cfg.driver = static_cast<HUB75_I2S_CFG::shift_driver>(s.driver);
   cfg.clkphase = s.clkPhase;
   cfg.i2sspeed = s.i2sSpeedMHz >= 20   ? HUB75_I2S_CFG::HZ_20M
@@ -89,16 +88,13 @@ bool Display::begin(const Settings& s) {
 }
 
 bool Display::beginSm16380(const Settings& s, const PanelPins& pins) {
-  // Same folding as a four-scan HUB75 panel: e.g. 64x64 at 1/16 scan has
-  // two 64-pixel row blocks on each data line's 8-chip chain.
-  scan_ = s.scan;
-  panelWidth_ = s.panelWidth;
-  panelHeight_ = s.panelHeight;
-  const bool fourScan = scan_ != PanelScan::Standard;
+  // Same folding as a HUB75 panel: e.g. 64x64 at 1/16 scan has two 64-pixel
+  // row blocks on each data line's 8-chip chain.
+  layout_ = s.panelLayout();
   Sm16380Panel::Config cfg;
   cfg.pins = pins;
-  cfg.width = s.panelWidth * s.chain * (fourScan ? 2 : 1);
-  cfg.height = fourScan ? s.panelHeight / 2 : s.panelHeight;
+  cfg.width = layout_.driverWidth() * s.chain;
+  cfg.height = layout_.driverHeight();
   cfg.profile = s.spwmProfile < sm16380::kProfileCount ? s.spwmProfile : 0;
   cfg.grayBits = s.spwmGrayBits;
   cfg.clkPhase = s.clkPhase;
@@ -144,26 +140,6 @@ void Display::applyBrightness() {
   }
 }
 
-// Panel (x, y) -> position in the DMA buffer. On a four-scan panel each row
-// address drives four rows: the shift-register chain runs through one block
-// of `blk` rows (blk = height / 4), then the next, so each half-height DMA
-// row holds two panel rows side by side. Same mapping as the library's
-// VirtualMatrixPanel FOUR_SCAN_32PX_HIGH / FOUR_SCAN_16PX_HIGH.
-void Display::mapPixel(uint16_t x, uint16_t y, int16_t& px, int16_t& py) const {
-  if (scan_ == PanelScan::Standard) {
-    px = x;
-    py = y;
-    return;
-  }
-  const uint16_t w = panelWidth_;
-  const uint16_t blk = panelHeight_ / 4;
-  const uint16_t panel = x / w;
-  bool firstBlock = (y & blk) == 0;
-  if (scan_ == PanelScan::FourScanAlt) firstBlock = !firstBlock;
-  px = panel * 2 * w + (firstBlock ? w : 0) + (x % w);
-  py = (y / (2 * blk)) * blk + (y % blk);
-}
-
 void Display::present() {
   if ((!matrix_ && !spwm_) || !shadow_) return;
   const uint16_t* buf = renderer_->frame();
@@ -172,8 +148,8 @@ void Display::present() {
     for (uint16_t x = 0; x < w; x++) {
       size_t i = static_cast<size_t>(y) * w + x;
       if (fullRefresh_ || buf[i] != shadow_[i]) {
-        int16_t px, py;
-        mapPixel(x, y, px, py);
+        uint16_t px, py;
+        panelmap::map(layout_, x, y, px, py);
         if (matrix_) {
           matrix_->drawPixel(px, py, buf[i]);
         } else {

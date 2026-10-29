@@ -47,7 +47,7 @@ DEFAULTS = {
         "night": {"mode": "off", "brightness": 24, "color": "#ff0000", "start": 1200, "end": 360, "utcOffset": 0},
     },
     "panel": {
-        "width": 64, "height": 64, "chain": 1, "scan": "standard", "driver": "FM6126A", "clkPhase": False, "i2sSpeed": 8, "latchBlanking": 1, "spwmProfile": 0, "spwmGrayBits": 16,
+        "width": 64, "height": 64, "chain": 1, "scan": "standard", "scanChunk": 0, "chipPad": True, "chipSkip": "", "driver": "FM6126A", "clkPhase": False, "i2sSpeed": 8, "latchBlanking": 1, "spwmProfile": 0, "spwmGrayBits": 16,
         "colorOrder": "RGB",
         "pins": {"r1": 4, "g1": 5, "b1": 6, "r2": 7, "g2": 15, "b2": 16, "a": 18, "b": 8, "c": 3, "d": 42, "e": 9, "lat": 40, "oe": 2, "clk": 41},
     },

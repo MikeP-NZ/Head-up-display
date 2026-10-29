@@ -16,7 +16,7 @@ namespace {
 constexpr uint32_t kInfoHoldMs = 3000;
 constexpr uint32_t kResetHoldMs = 10000;
 constexpr uint32_t kFrameMs = 50;
-constexpr uint32_t kTestPatternMs = 10500;
+constexpr uint32_t kTestPatternMs = 60000;
 
 uint32_t buttonDownMs = 0;
 bool buttonWasDown = false;

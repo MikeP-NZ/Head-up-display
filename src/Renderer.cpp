@@ -533,6 +533,15 @@ void Renderer::drawTestPattern(uint32_t elapsedMs) {
     drawCentered(kNames[step], ch / 2 - 3, rgb565(kFills[step] == 0xFFFFFF ? 0xFFFFFF : kFills[step]));
     return;
   }
+  // Then 6 s of colour bars, 12 s of the scan test, and the column code to the end.
+  if (step >= 16) {
+    drawColumnCode();
+    return;
+  }
+  if (step >= 8) {
+    drawScanTest();
+    return;
+  }
   // Colour bars + border + corner markers to check orientation and chaining.
   canvas_->fillScreen(0);
   static const uint32_t kBars[] = {0xFF0000, 0x00FF00, 0x0000FF, 0xFFFF00, 0x00FFFF, 0xFF00FF, 0xFFFFFF, 0x808080};
@@ -550,6 +559,48 @@ void Renderer::drawTestPattern(uint32_t elapsedMs) {
   canvas_->setTextColor(rgb565(0xFFFFFF));
   canvas_->setCursor(6, 14);
   canvas_->print("TOP L");
+}
+
+// For working out a panel's scan mapping from a photo. The panel is split
+// into four bands (the row blocks of a panel lighting 4 rows per address),
+// coloured red, green, blue and white from the top. In each band, every group
+// of 8 columns is a bar whose height counts the group: 1 px for columns 0-7,
+// 2 px for 8-15 and so on, with the group's first column dark. Wherever a bar
+// lands on a wrongly mapped panel, its colour and height say where it belongs.
+void Renderer::drawScanTest() {
+  static const uint32_t kBands[] = {0xFF0000, 0x00FF00, 0x0000FF, 0xFFFFFF};
+  canvas_->fillScreen(0);
+  const int cw = canvas_->width(), ch = canvas_->height();
+  const int band = ch / 4;
+  if (band < 1) return;
+  for (int q = 0; q < 4; q++) {
+    const uint16_t c = rgb565(kBands[q]);
+    for (int g = 0; g * 8 < cw; g++) {
+      const int h = g % band + 1;
+      canvas_->fillRect(g * 8 + 1, q * band, 7, h, c);
+    }
+  }
+}
+
+// Each column shows its own number in binary, so a photo of a scrambled
+// panel says which column's data reached each LED column. Same four coloured
+// bands as the scan test; in each, the top 7 rows are bits 0-6 of the column
+// number (bit 0 at the top), then a gap row, then a row lit on even columns
+// to help count them.
+void Renderer::drawColumnCode() {
+  static const uint32_t kBands[] = {0xFF0000, 0x00FF00, 0x0000FF, 0xFFFFFF};
+  canvas_->fillScreen(0);
+  const int cw = canvas_->width(), ch = canvas_->height();
+  const int band = ch / 4;
+  for (int q = 0; q < 4; q++) {
+    const uint16_t c = rgb565(kBands[q]);
+    for (int x = 0; x < cw; x++) {
+      for (int bit = 0; bit < 7 && bit < band; bit++) {
+        if (x >> bit & 1) canvas_->drawPixel(x, q * band + bit, c);
+      }
+      if (band > 8 && x % 2 == 0) canvas_->drawPixel(x, q * band + 8, c);
+    }
+  }
 }
 
 void Renderer::drawMessage(const char* title, const char* detail, int progressPercent, uint32_t nowMs) {

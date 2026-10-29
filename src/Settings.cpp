@@ -46,7 +46,8 @@ constexpr EnumName<PanelDriver> kDrivers[] = {{PanelDriver::ShiftReg, "SHIFTREG"
                                               {PanelDriver::SM16380, "SM16380"}};
 
 constexpr EnumName<PanelScan> kScans[] = {
-    {PanelScan::Standard, "standard"}, {PanelScan::FourScan, "four"}, {PanelScan::FourScanAlt, "four-alt"}};
+    {PanelScan::Standard, "standard"},   {PanelScan::FourScan, "four"},          {PanelScan::FourScanAlt, "four-alt"},
+    {PanelScan::EightScan, "eight"}, {PanelScan::EightScanAlt, "eight-alt"}};
 
 template <typename E, size_t N>
 const char* nameOf(const EnumName<E> (&table)[N], E value) {
@@ -162,7 +163,37 @@ class Merger {
   String& error_;
 };
 
+// "15, 31,47" -> ascending output numbers. False if it isn't such a list.
+bool parseChipSkip(const String& text, panelmap::Layout& l) {
+  l.skipCount = 0;
+  const char* p = text.c_str();
+  while (*p) {
+    while (*p == ' ' || *p == ',') p++;
+    if (!*p) break;
+    if (*p < '0' || *p > '9' || l.skipCount >= panelmap::kMaxSkip) return false;
+    long n = 0;
+    while (*p >= '0' && *p <= '9') n = n * 10 + (*p++ - '0');
+    if (n > 255 || (*p && *p != ',' && *p != ' ')) return false;
+    l.skip[l.skipCount++] = static_cast<uint8_t>(n);
+  }
+  return true;
+}
+
 }  // namespace
+
+panelmap::Layout Settings::panelLayout() const {
+  panelmap::Layout l;
+  l.width = panelWidth;
+  l.height = panelHeight;
+  l.rowsLit = scan == PanelScan::Standard                                       ? 2
+              : scan == PanelScan::FourScan || scan == PanelScan::FourScanAlt ? 4
+                                                                                : 8;
+  l.chunk = scanChunk;
+  l.chipPad = chipPad;
+  l.reverse = scan != PanelScan::FourScanAlt && scan != PanelScan::EightScanAlt;
+  if (!parseChipSkip(chipSkip, l)) l.skipCount = 0;
+  return l;
+}
 
 ModelConfig Settings::modelConfig() const {
   ModelConfig c;
@@ -265,6 +296,9 @@ void settingsToJson(const Settings& s, JsonObject root, bool includeSecrets) {
   panel["height"] = s.panelHeight;
   panel["chain"] = s.chain;
   panel["scan"] = nameOf(kScans, s.scan);
+  panel["scanChunk"] = s.scanChunk;
+  panel["chipPad"] = s.chipPad;
+  panel["chipSkip"] = s.chipSkip;
   panel["driver"] = nameOf(kDrivers, s.driver);
   panel["clkPhase"] = s.clkPhase;
   panel["i2sSpeed"] = s.i2sSpeedMHz;
@@ -366,6 +400,9 @@ bool settingsMergeJson(Settings& s, JsonObjectConst root, SettingsChanges& chang
     m.num(o, "height", n.panelHeight, 16, 128);
     m.num(o, "chain", n.chain, 1, 4);
     m.choice(o, "scan", kScans, n.scan);
+    m.num(o, "scanChunk", n.scanChunk, 0, 64);
+    m.boolean(o, "chipPad", n.chipPad);
+    m.str(o, "chipSkip", n.chipSkip, 80);
     m.choice(o, "driver", kDrivers, n.driver);
     m.boolean(o, "clkPhase", n.clkPhase);
     m.num(o, "i2sSpeed", n.i2sSpeedMHz, 2, 20);
@@ -379,9 +416,14 @@ bool settingsMergeJson(Settings& s, JsonObjectConst root, SettingsChanges& chang
       m.fail("colorOrder", "must be a permutation of RGB");
     }
     const bool spwm = n.driver == PanelDriver::SM16380;
-    if (n.scan != PanelScan::Standard && n.panelHeight != 32 && n.panelHeight != 16 &&
-        !(spwm && n.panelHeight == 64)) {
-      m.fail("scan", "four-row scan needs a 32 px high panel (or 16 px; 64 px with SM16380)");
+    const panelmap::Layout layout = n.panelLayout();
+    if (n.panelHeight % layout.rowsLit != 0) {
+      m.fail("scan", (String("needs a panel height divisible by ") + layout.rowsLit).c_str());
+    }
+    if (n.scanChunk != 0 && n.panelWidth % n.scanChunk != 0) m.fail("scanChunk", "must divide the panel width");
+    panelmap::Layout skipCheck = layout;
+    if (!parseChipSkip(n.chipSkip, skipCheck) || !skipCheck.valid()) {
+      m.fail("unused chip outputs", "must be up to 16 rising numbers below the panel width plus their count");
     }
     const bool slowClock = spwm && (n.i2sSpeedMHz == 2 || n.i2sSpeedMHz == 5);
     if (n.i2sSpeedMHz != 8 && n.i2sSpeedMHz != 16 && n.i2sSpeedMHz != 20 && !slowClock) {

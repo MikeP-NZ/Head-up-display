@@ -63,6 +63,8 @@ class Renderer {
   // `page` is a free-running counter; the renderer wraps it.
   void drawInfo(const InfoView& v, uint32_t page);
   void drawTestPattern(uint32_t elapsedMs);
+  void drawScanTest();
+  void drawColumnCode();
   void drawMessage(const char* title, const char* detail, int progressPercent, uint32_t nowMs);
 
   const uint16_t* frame() const;
