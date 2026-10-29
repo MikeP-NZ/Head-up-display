@@ -18,6 +18,7 @@ through Windows Firewall when asked, so the display can connect.
 import argparse
 import math
 import random
+import select
 import socket
 import threading
 import time
@@ -211,16 +212,38 @@ def serve_tcp(args, feed):
     srv.bind(("0.0.0.0", args.port))
     srv.listen(5)
 
+    def drop(c, why):
+        clients.remove(c)
+        try:
+            c.close()
+        except OSError:
+            pass
+        print("client disconnected (%s), %d left" % (why, len(clients)))
+
+    def reap():
+        # A client that closed its end becomes readable and returns no data.
+        # Without this, closed clients would only go once a send to them
+        # failed, which can take a long time, and would hold the 3 slots.
+        readable = select.select(clients, [], [], 0)[0] if clients else []
+        for c in readable:
+            try:
+                data = c.recv(256)  # clients don't send anything we need
+            except OSError:
+                data = b""
+            if not data:
+                drop(c, "closed")
+
     def accept():
         while True:
             c, addr = srv.accept()
             with lock:
+                reap()
                 if len(clients) >= 3:  # YD servers allow 3 TCP clients
                     print("refusing %s:%d (3 clients already)" % addr)
                     c.close()
                     continue
                 clients.append(c)
-            print("client connected: %s:%d" % addr)
+            print("client connected: %s:%d (%d now)" % (addr[0], addr[1], len(clients)))
 
     threading.Thread(target=accept, daemon=True).start()
     print("TCP %s server on port %d - Ctrl+C to stop" % (args.protocol, args.port))
@@ -229,12 +252,12 @@ def serve_tcp(args, feed):
         if args.verbose:
             print(payload.decode().rstrip())
         with lock:
+            reap()
             for c in list(clients):
                 try:
                     c.sendall(payload)
                 except OSError:
-                    clients.remove(c)
-                    print("client disconnected")
+                    drop(c, "send failed")
         time.sleep(1.0 / args.rate)
 
 
