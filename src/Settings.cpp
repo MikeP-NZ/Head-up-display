@@ -16,7 +16,6 @@ struct EnumName {
   const char* name;
 };
 
-constexpr EnumName<ApMode> kApModes[] = {{ApMode::Always, "always"}, {ApMode::Fallback, "fallback"}};
 constexpr EnumName<Transport> kTransports[] = {{Transport::Tcp, "tcp"}, {Transport::Udp, "udp"}};
 constexpr EnumName<DataProtocol> kProtocols[] = {
     {DataProtocol::Auto, "auto"}, {DataProtocol::Nmea0183, "nmea0183"}, {DataProtocol::Raw, "raw"}};
@@ -241,7 +240,6 @@ void settingsToJson(const Settings& s, JsonObject root, bool includeSecrets) {
   if (includeSecrets) wifi["password"] = s.staPass;
 
   JsonObject portal = root["portal"].to<JsonObject>();
-  portal["apMode"] = nameOf(kApModes, s.apMode);
   portal["ssid"] = s.apSsid;
   portal["defaultSsid"] = String("HeadUp-") + deviceId();
   portal["open"] = s.apPass.length() == 0;
@@ -323,7 +321,6 @@ bool settingsMergeJson(Settings& s, JsonObjectConst root, SettingsChanges& chang
     if (n.staPass.length() > 0 && n.staPass.length() < 8) m.fail("wifi password", "must be 8-63 characters");
   }
   if (JsonObjectConst o = root["portal"]) {
-    m.choice(o, "apMode", kApModes, n.apMode);
     m.str(o, "ssid", n.apSsid, 32, false);
     m.str(o, "password", n.apPass, 63, false);
     if (o["open"] == true) n.apPass = "";

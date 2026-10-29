@@ -34,8 +34,21 @@ void BoatWifi::begin(const Settings& s) {
   staPass_ = s.staPass;
   apSsidCfg_ = s.effectiveApSsid();
   apPassCfg_ = s.apPass;
-  apMode_ = s.apMode;
   hostname_ = s.hostname;
+
+  // Registered before Wi-Fi starts, for the same reason as the mode below:
+  // the event task iterates the handler list without a lock.
+  WiFi.onEvent([this](arduino_event_id_t, arduino_event_info_t info) {
+    onStaDisconnected(info.wifi_sta_disconnected.reason, info.wifi_sta_disconnected.rssi);
+  }, ARDUINO_EVENT_WIFI_STA_DISCONNECTED);
+  WiFi.onEvent([this](arduino_event_id_t, arduino_event_info_t) {
+    const int8_t rssi = static_cast<int8_t>(WiFi.RSSI());
+    portENTER_CRITICAL(&eventLock_);
+    linkUp_ = true;
+    joins_++;
+    portEXIT_CRITICAL(&eventLock_);
+    logEvent(true, 0, rssi);
+  }, ARDUINO_EVENT_WIFI_STA_GOT_IP);
 
   WiFi.persistent(false);
   WiFi.setHostname(hostname_.c_str());
@@ -53,7 +66,7 @@ void BoatWifi::begin(const Settings& s) {
 
   if (staConfigured()) connectSta();
   updateAp();
-  if (!apActive_) WiFi.mode(WIFI_STA);  // fallback mode: AP comes up later if needed
+  if (!apActive_) WiFi.mode(WIFI_STA);  // the AP comes up later if the boat network can't be joined
 
   mdnsStarted_ = MDNS.begin(hostname_.c_str());
   if (mdnsStarted_) MDNS.addService("http", "tcp", 80);
@@ -63,7 +76,6 @@ void BoatWifi::apply(const Settings& s, bool wifiChanged, bool portalChanged) {
   if (portalChanged) {
     apSsidCfg_ = s.effectiveApSsid();
     apPassCfg_ = s.apPass;
-    apMode_ = s.apMode;
     if (s.hostname != hostname_) {
       hostname_ = s.hostname;
       WiFi.setHostname(hostname_.c_str());
@@ -105,6 +117,30 @@ void BoatWifi::connectSta() {
   WiFi.begin(staSsid_.c_str(), staPass_.length() ? staPass_.c_str() : nullptr);
 }
 
+// Runs in the Wi-Fi event task. Failed join attempts also land here (every
+// retry while the network is away); only the loss of a working link counts as
+// a drop.
+void BoatWifi::onStaDisconnected(uint8_t reason, int8_t rssi) {
+  portENTER_CRITICAL(&eventLock_);
+  const bool wasUp = linkUp_;
+  linkUp_ = false;
+  if (wasUp) drops_++;
+  if (rssi == 0) rssi = lastRssi_;
+  portEXIT_CRITICAL(&eventLock_);
+  if (wasUp) {
+    logEvent(false, reason, rssi);
+    log_e("dropped from '%s': %s (%u), %d dBm", staSsid_.c_str(),
+          WiFi.disconnectReasonName(static_cast<wifi_err_reason_t>(reason)), reason, rssi);
+  }
+}
+
+void BoatWifi::logEvent(bool joined, uint8_t reason, int8_t rssi) {
+  portENTER_CRITICAL(&eventLock_);
+  events_[eventCount_ % kEventLog] = {millis(), joined, reason, rssi};
+  eventCount_++;
+  portEXIT_CRITICAL(&eventLock_);
+}
+
 void BoatWifi::forceAp(uint32_t ms) {
   apForcedUntil_ = millis() + ms;
   if (apForcedUntil_ == 0) apForcedUntil_ = 1;
@@ -130,15 +166,32 @@ void BoatWifi::stopAp() {
   log_i("portal AP down");
 }
 
+uint8_t BoatWifi::apClients() {
+  // Reading the station list locks the Wi-Fi driver; once per loop pass
+  // (hundreds of times a second) measurably slowed the boat network.
+  const uint32_t now = millis();
+  if (!apActive_) {
+    apClients_ = 0;
+  } else if (now - apClientsReadMs_ >= 250) {
+    apClientsReadMs_ = now;
+    apClients_ = WiFi.softAPgetStationNum();
+  }
+  return apClients_;
+}
+
 void BoatWifi::updateAp() {
   uint32_t now = millis();
   bool connected = staConnected();
   bool forced = apForcedUntil_ && static_cast<int32_t>(apForcedUntil_ - now) > 0;
   if (!forced) apForcedUntil_ = 0;
-  bool hasClients = apActive_ && WiFi.softAPgetStationNum() > 0;
+  bool hasClients = apClients() > 0;
 
+  // The setup network only runs while the display isn't on the boat
+  // network: running both on one radio delayed and lost the boat network's
+  // packets. It also stays up while someone is connected to it, and when
+  // forced on (button hold, connection info).
   bool want;
-  if (apMode_ == ApMode::Always || !staConfigured() || forced || hasClients) {
+  if (!staConfigured() || forced || hasClients) {
     want = true;
   } else if (connected) {
     want = apActive_ && now - connectedSinceMs_ < kFallbackApOffDelayMs;
@@ -162,10 +215,17 @@ void BoatWifi::loop() {
     lastAttemptMs_ = now;  // give the stack a moment before retrying
   }
   wasConnected_ = connected;
+  static uint32_t lastRssiMs = 0;
+  if (connected && now - lastRssiMs > 2000) {
+    lastRssiMs = now;
+    const int8_t rssi = static_cast<int8_t>(WiFi.RSSI());
+    portENTER_CRITICAL(&eventLock_);
+    lastRssi_ = rssi;
+    portEXIT_CRITICAL(&eventLock_);
+  }
 
   if (!connected && staConfigured() && !scanRequested_) {
-    uint32_t interval =
-        apActive_ && WiFi.softAPgetStationNum() > 0 ? kRetryWithPortalClientsMs : kRetryMs;
+    uint32_t interval = apClients() > 0 ? kRetryWithPortalClientsMs : kRetryMs;
     if (now - lastAttemptMs_ > interval) {
       WiFi.disconnect(false, false);
       connectSta();
@@ -240,10 +300,38 @@ void BoatWifi::statusJson(JsonObject out) const {
     sta["channel"] = WiFi.channel();
   }
   sta["hostname"] = hostname_;
+  sta["mac"] = WiFi.macAddress();
+
+  // Joins and drops, newest first; "ago" in seconds.
+  LinkEvent log[kEventLog];
+  size_t count;
+  uint32_t drops, joins;
+  portENTER_CRITICAL(&eventLock_);
+  memcpy(log, events_, sizeof(log));
+  count = eventCount_;
+  drops = drops_;
+  joins = joins_;
+  portEXIT_CRITICAL(&eventLock_);
+  sta["joins"] = joins;
+  sta["drops"] = drops;
+  JsonArray events = sta["events"].to<JsonArray>();
+  const uint32_t now = millis();
+  for (size_t i = 0; i < count && i < kEventLog; i++) {
+    const LinkEvent& e = log[(count - 1 - i) % kEventLog];
+    JsonObject o = events.add<JsonObject>();
+    o["ago"] = (now - e.atMs) / 1000;
+    o["joined"] = e.joined;
+    o["rssi"] = e.rssi;
+    if (!e.joined) {
+      o["reason"] = e.reason;
+      o["reasonName"] = WiFi.disconnectReasonName(static_cast<wifi_err_reason_t>(e.reason));
+    }
+  }
 
   JsonObject ap = out["ap"].to<JsonObject>();
   ap["active"] = apActive_;
   ap["ssid"] = apActive_ ? apSsidActive_ : apSsidCfg_;
   ap["ip"] = kApIp.toString();
   ap["clients"] = apActive_ ? WiFi.softAPgetStationNum() : 0;
+  ap["mac"] = WiFi.softAPmacAddress();
 }

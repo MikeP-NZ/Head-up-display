@@ -93,10 +93,13 @@ marks calculated values.
 When multiple devices on the bus are sending the same data (eg. multiple GPS receivers) you can
 choose which device's data to display, either by NMEA 2000 source address (RAW) or by talker ID (0183).
 
-The display also runs its own Wi-Fi network for the setup portal at
-`http://192.168.71.1`. That network deliberately avoids 192.168.4.x, which the
-gateway uses. Once the display is on the boat network, the portal is also
-reachable at `http://headup.local` or the display's IP address.
+Until it's on the boat network, the display runs its own Wi-Fi network for
+the setup portal at `http://192.168.71.1`. That network deliberately avoids
+192.168.4.x, which the gateway uses. Once the display is on the boat network,
+the portal is at `http://headup.local` or the display's IP address, and the
+setup network turns off: running both on the one radio delays and loses the
+boat network's traffic. It comes back if the boat network can't be joined for
+20 seconds, or for 15 minutes when you hold the button for 3 seconds.
 
 ## Flashing
 
@@ -204,6 +207,10 @@ Set the user environment variable `UV_SYSTEM_CERTS` to `1` and restart VS Code.
    3. Receive NMEA data
    4. Find instrument data
 
+The setup network stays on while your phone is connected to it. Once the
+phone leaves, it turns off, and the portal is at `http://headup.local` on the
+boat network.
+
 With a Yacht Devices gateway on factory settings, nothing else needs changing.
 The display defaults to TCP, port 1456, *Automatic* gateway address, and *Auto* protocol,
 which matches Server #1 out of the box.
@@ -269,7 +276,7 @@ its address, transport and port on the **Source** tab.
 | Tab | What it does |
 |---|---|
 | Live | Current speed, every instrument value, live LED preview, setup checklist, every data source seen on the bus |
-| Network | Boat network (with scan); setup network name, password, always-on vs fallback, hostname |
+| Network | Boat network (with scan); setup network name, password, hostname |
 | Source | Demo mode; TCP/UDP, gateway address and port, NMEA 0183 / RAW / Auto, gateway discovery, connection stats, live data view |
 | Data | STW vs SOG for *Boat speed* (with fallback), received or calculated true wind and VMG, heading for TWD, default magnetic variation, speed units (kn, km/h, mph, m/s), depth units (m, ft), temperature units (°C, °F), distance units (NM, km, mi) with optional m/yd/ft for distances under 1000 of those, magnetic or true bearings, decimals, smoothing, stale timeout, per-device source selection |
 | Layout | Layout (1, 2 or 4 sections) and the value in each, brightness, colours, rotation, which labels to show, night mode (manual or scheduled), test pattern |
@@ -359,7 +366,7 @@ turned off.
 | Data flows but "NO SPEED DATA" | Check the 0183 transmit filters, or switch to RAW; make sure the Data tab's source mode allows the speed that exists (STW vs SOG) |
 | A section shows dashes | The bus doesn't carry that value: the **Live** tab lists what arrives. Check the gateway's 0183 transmit filters, or use RAW. A bearing sent only in the other reference (true vs magnetic) needs a magnetic variation (`RMC`, `HDG`, PGN 127258) or a default one on the Data tab. Missing TWA, TWS, TWD or VMG can be calculated (Data tab) |
 | VMG stays empty with RAW | NMEA 2000 has no standard VMG message. Let the display calculate it (Data → *Calculate missing values*), or use NMEA 0183 with `VPW` from your instruments |
-| Phone keeps dropping the setup network | While the display can't find the boat Wi-Fi it scans for it, which moves its own network between channels. Set up the boat Wi-Fi first, or set the setup network to *fallback* |
+| Phone keeps dropping the setup network | While the display can't find the boat Wi-Fi it scans for it, which moves its own network between channels. Set up the boat Wi-Fi first |
 
 ## Development
 

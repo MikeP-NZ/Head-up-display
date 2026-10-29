@@ -23,6 +23,11 @@ struct App {
   uint32_t applyAtMs = 0;
 
   uint32_t testPatternStartMs = 0;
+  // Longest gap between main loop passes: the portal is only answered between
+  // passes, so a long one shows up as the portal losing contact.
+  uint32_t loopGapMaxMs = 0;     // since start-up
+  uint32_t loopGapRecentMs = 0;  // since the portal last read it
+  uint32_t loopGapAtMs = 0;      // when the longest one ended
   bool testPattern = false;
   uint32_t infoUntilMs = 0;
   int otaProgress = -1;

@@ -14,7 +14,32 @@ namespace portal {
 
 namespace {
 
-WebServer server(80);
+// WebServer serves one connection at a time, and waits up to 5 s for a new
+// connection to send its request. Browsers (phones especially) open spare
+// connections ahead of time and often never use them, so every request
+// behind one queued for 5 s and the portal reported lost contact while the
+// display was fine. Give up on a silent connection much sooner, and sooner
+// still when another one is waiting.
+class PortalServer : public WebServer {
+ public:
+  using WebServer::WebServer;
+
+  void dropSilentClient() {
+    if (_currentStatus != HC_WAIT_READ || _currentClient.available()) return;
+    const uint32_t silent = millis() - _statusChange;
+    if (silent > kSilentMs || (silent > kSilentWithQueueMs && _server.hasClient())) {
+      _currentClient.stop();
+      _currentClient = NetworkClient();
+      _currentStatus = HC_NONE;
+    }
+  }
+
+ private:
+  static constexpr uint32_t kSilentMs = 2000;
+  static constexpr uint32_t kSilentWithQueueMs = 300;
+};
+
+PortalServer server(80);
 DNSServer dns;
 bool dnsRunning = false;
 bool otaFailed = false;
@@ -175,6 +200,23 @@ void valueJson(JsonObject o, Item item, float value, const DisplayUnits& units) 
   o["unit"] = d.unit;
 }
 
+// Why the display last started, in the portal's words.
+const char* resetReasonName(esp_reset_reason_t r) {
+  switch (r) {
+    case ESP_RST_POWERON: return "power on";
+    case ESP_RST_EXT: return "reset button";
+    case ESP_RST_SW: return "restarted by the firmware";
+    case ESP_RST_PANIC: return "crash";
+    case ESP_RST_INT_WDT:
+    case ESP_RST_TASK_WDT:
+    case ESP_RST_WDT: return "watchdog (the firmware hung)";
+    case ESP_RST_DEEPSLEEP: return "wake from sleep";
+    case ESP_RST_BROWNOUT: return "brownout (supply voltage dipped)";
+    case ESP_RST_SDIO: return "SDIO";
+    default: return "unknown";
+  }
+}
+
 void handleStatus() {
   JsonDocument doc;
   uint32_t now = millis();
@@ -184,6 +226,12 @@ void handleStatus() {
   doc["firmwareTag"] = firmwareTag();
   doc["deviceId"] = deviceId();
   doc["uptime"] = now / 1000;
+  doc["resetReason"] = resetReasonName(esp_reset_reason());
+  JsonObject loop = doc["loop"].to<JsonObject>();
+  loop["gapRecentMs"] = app.loopGapRecentMs;
+  loop["gapMaxMs"] = app.loopGapMaxMs;
+  loop["gapMaxAgo"] = app.loopGapMaxMs ? (now - app.loopGapAtMs) / 1000 : 0;
+  app.loopGapRecentMs = 0;
   doc["heap"] = ESP.getFreeHeap();
   doc["minHeap"] = ESP.getMinFreeHeap();
   doc["psram"] = ESP.getPsramSize();
@@ -492,6 +540,7 @@ void loop() {
     dnsRunning = false;
   }
   if (dnsRunning) dns.processNextRequest();
+  server.dropSilentClient();
   server.handleClient();
 }
 

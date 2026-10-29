@@ -9,7 +9,6 @@
 #include "LineDecoder.h"
 #include "PanelMap.h"
 
-enum class ApMode : uint8_t { Always = 0, Fallback = 1 };
 enum class Transport : uint8_t { Tcp = 0, Udp = 1 };
 enum class NightMode : uint8_t { Off = 0, On = 1, Schedule = 2 };
 
@@ -28,7 +27,6 @@ struct Settings {
   String staPass;  // empty = open network
 
   // Configuration portal
-  ApMode apMode = ApMode::Always;
   String apSsid;  // empty = "HeadUp-XXXX"
   String apPass = "headupdisplay";
   String hostname = "headup";

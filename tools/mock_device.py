@@ -36,7 +36,7 @@ UNITS = {"kn": ("KN", 1.943844), "kmh": ("KM/H", 3.6), "mph": ("MPH", 2.236936),
 
 DEFAULTS = {
     "wifi": {"ssid": "", "open": True},
-    "portal": {"apMode": "always", "ssid": "", "defaultSsid": "HeadUp-1A2B", "open": False, "hostname": "headup"},
+    "portal": {"ssid": "", "defaultSsid": "HeadUp-1A2B", "open": False, "hostname": "headup"},
     "data": {"transport": "tcp", "protocol": "auto", "host": "", "port": 1456, "demo": False},
     "speed": {"source": "prefer_stw", "unit": "kn", "decimals": -1, "smoothing": 1.0, "staleSec": 5, "stwFilter": 0, "sogFilter": 0, "depthUnit": "m", "tempUnit": "c",
               "trueWind": "fill", "windHeading": "hdg", "defaultVariationOn": False, "defaultVariation": 0,
@@ -168,14 +168,18 @@ class Device:
         proto = self.cfg["data"]["protocol"]
         return {
             "fw": "1.1.0-mock", "board": self.board["name"], "deviceId": "1A2B", "uptime": int(now - self.boot), "heap": 182000, "minHeap": 150000,
-            "psram": 16 * 1048576, "rebootRequired": self.reboot_required,
+            "psram": 16 * 1048576, "rebootRequired": self.reboot_required, "resetReason": "power on", "loop": {"gapRecentMs": 4, "gapMaxMs": 37, "gapMaxAgo": 12},
             "wifi": {
                 "configured": bool(self.cfg["wifi"]["ssid"]), "ssid": self.cfg["wifi"]["ssid"],
                 "state": "connected" if conn else ("not_configured" if not self.cfg["wifi"]["ssid"] else "connecting"),
-                "connected": conn, "hostname": self.cfg["portal"]["hostname"],
+                "connected": conn, "hostname": self.cfg["portal"]["hostname"], "mac": "F4:12:FA:1A:85:2C",
+                "joins": 2, "drops": 1, "events": [
+                    {"ago": 340, "joined": True, "rssi": -71},
+                    {"ago": 352, "joined": False, "reason": 200, "reasonName": "BEACON_TIMEOUT", "rssi": -79},
+                    {"ago": int(now - self.boot), "joined": True, "rssi": -70}],
                 **({"ip": "192.168.4.2", "gateway": "192.168.4.1", "rssi": -58, "channel": 6} if conn else {}),
             },
-            "ap": {"active": True, "ssid": self.cfg["portal"]["ssid"] or "HeadUp-1A2B", "ip": "192.168.71.1", "clients": 1},
+            "ap": {"active": True, "ssid": self.cfg["portal"]["ssid"] or "HeadUp-1A2B", "ip": "192.168.71.1", "clients": 1, "mac": "F4:12:FA:1A:85:2D"},
             "data": {
                 "transport": self.cfg["data"]["transport"], "host": self.cfg["data"]["host"], "port": self.cfg["data"]["port"],
                 "remote": "192.168.4.1" if conn else "",

@@ -227,6 +227,16 @@ void setup() {
 }
 
 void loop() {
+  static uint32_t lastLoopMs = millis();
+  const uint32_t loopStart = millis();
+  const uint32_t gap = loopStart - lastLoopMs;
+  lastLoopMs = loopStart;
+  if (gap > app.loopGapRecentMs) app.loopGapRecentMs = gap;
+  if (gap > app.loopGapMaxMs) {
+    app.loopGapMaxMs = gap;
+    app.loopGapAtMs = loopStart;
+  }
+
   app.wifi.loop();
   app.link.setNetworkUp(app.wifi.staConnected());
   portal::loop();

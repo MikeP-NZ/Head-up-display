@@ -262,15 +262,8 @@ code { font-family: var(--mono); font-size: 12.5px; background: var(--panel-2); 
 
     <form class="card" id="form-portal">
       <h2>Setup access point</h2>
-      <p class="sub">The display's own Wi-Fi network for this page, at <code>http://192.168.71.1</code>. On the boat network the page is also at <code id="portal-url">http://headup.local</code>.</p>
+      <p class="sub">The display's own Wi-Fi network for this page, at <code>http://192.168.71.1</code>. It only runs while the display isn't on the boat network: before that's set up, or when it can't be joined for 20 seconds. Once the display is on the boat network, the page is at <code id="portal-url">http://headup.local</code> instead. Holding the <span class="btn-name">BOOT</span> button for 3 seconds turns the setup network on for 15 minutes.</p>
       <div class="grid">
-        <label class="field"><span>When to broadcast it</span>
-          <select id="portal-apMode">
-            <option value="always">Always</option>
-            <option value="fallback">Only when the boat Wi-Fi is unavailable</option>
-          </select>
-          <div class="hint">Holding the <span class="btn-name">BOOT</span> button for 3 seconds always turns it on for 15 minutes.</div>
-        </label>
         <label class="field"><span>Network name</span>
           <input type="text" id="portal-ssid" maxlength="32" autocomplete="off" spellcheck="false">
         </label>
@@ -655,6 +648,12 @@ code { font-family: var(--mono); font-size: 12.5px; background: var(--panel-2); 
       <dl class="kv" id="sys-kv"></dl>
     </div>
     <div class="card">
+      <h2>Wi-Fi history</h2>
+      <p class="sub" id="wifi-log-sub"></p>
+      <dl class="kv" id="wifi-log"></dl>
+      <div class="hint">Since the display last started; newest first. Signal is the boat network's strength at the display: above −67 dBm is good, below −80 dBm is weak. <em>Beacon timeout</em> means the display stopped hearing the network: usually weak signal, interference or the router going away. <em>Handshake timeout</em> or <em>auth</em> reasons point at the password or the router. <em>Assoc leave</em> is the display itself leaving, e.g. after a settings change.</div>
+    </div>
+    <div class="card">
       <h2>Firmware update</h2>
       <p class="sub">Upload a <code>firmware.bin</code> built with PlatformIO (<code id="fw-path">.pio/build/…/firmware.bin</code>). Settings are kept. Images built for a different board are refused.</p>
       <div class="row">
@@ -894,7 +893,6 @@ function fillForms() {
   $('#wifi-password-hint').textContent = '';
   syncOpen('wifi');
 
-  $('#portal-apMode').value = c.portal.apMode;
   $('#portal-ssid').value = c.portal.ssid;
   $('#portal-ssid').placeholder = c.portal.defaultSsid;
   $('#portal-password').value = '';
@@ -1107,7 +1105,7 @@ $('#form-portal').addEventListener('submit', async (ev) => {
   const open = $('#portal-open').checked;
   const pw = $('#portal-password').value;
   if (!open && pw && pw.length < 8) return toast('Password must be at least 8 characters', true);
-  const portal = { apMode: $('#portal-apMode').value, ssid: $('#portal-ssid').value.trim(), hostname: $('#portal-hostname').value.trim() };
+  const portal = { ssid: $('#portal-ssid').value.trim(), hostname: $('#portal-hostname').value.trim() };
   if (open) portal.open = true;
   else if (pw) portal.password = pw;
   else if (cfg.portal.open) return toast('Enter a password, or tick "No password"', true);
@@ -1530,7 +1528,13 @@ function renderStatus(s) {
     ['Board', s.board],
     ['Firmware', s.fw],
     ['Device ID', s.deviceId],
+    ['IP address', s.wifi.connected ? `${s.wifi.ip} (boat network)` : 'not on the boat network'],
+    ['MAC address', s.wifi.mac ? `${s.wifi.mac} (setup network ${s.ap.mac || '—'})` : '—'],
     ['Uptime', `${Math.floor(up / 86400)}d ${Math.floor(up / 3600) % 24}h ${Math.floor(up / 60) % 60}m`],
+    ['Last restart', s.resetReason || '—'],
+    ['Portal link', `${portalLink.requests} status requests, ${portalLink.failed} failed` +
+      (portalLink.failed ? ` (last ${ago(Date.now() - portalLink.lastFailAt)} ago)` : '') + ` · slowest ${portalLink.slowestMs} ms`],
+    ['Display pauses', s.loop ? `longest ${s.loop.gapMaxMs} ms (${ago(s.loop.gapMaxAgo * 1000)} ago) · last second ${s.loop.gapRecentMs} ms` : '—'],
     ['Boat Wi-Fi', s.wifi.connected ? `${s.wifi.ssid} · ${s.wifi.ip} · ch ${s.wifi.channel} · ${s.wifi.rssi} dBm` : s.wifi.state.replace(/_/g, ' ')],
     ['Setup network', s.ap.active ? `${s.ap.ssid} · ${s.ap.ip} · ${s.ap.clients} connected` : 'off'],
     ['Panel', s.display.panelOk ? `${s.display.width}×${s.display.height}` : 'NOT INITIALISED — check Hardware settings'],
@@ -1539,6 +1543,15 @@ function renderStatus(s) {
   ];
   $('#sys-kv').innerHTML = sys.map(([k, v]) => `<dt>${k}</dt><dd>${escapeHtml(v)}</dd>`).join('');
 
+  const w = s.wifi;
+  $('#wifi-log-sub').textContent = w.joins != null
+    ? `Joined ${w.joins} time${w.joins === 1 ? '' : 's'}, dropped ${w.drops} time${w.drops === 1 ? '' : 's'}.`
+    : '';
+  $('#wifi-log').innerHTML = (w.events || []).map((e) => {
+    const what = e.joined ? 'Joined' : `Dropped: ${e.reasonName || 'unknown'} (${e.reason})`;
+    return `<dt>${escapeHtml(ago(e.ago * 1000))} ago</dt><dd>${escapeHtml(what)} · ${e.rssi} dBm</dd>`;
+  }).join('');
+
   $('#reboot-banner').hidden = !s.rebootRequired;
   $('#demo-banner').hidden = s.data.state !== 'demo';
   fillFilterSelects();
@@ -1546,11 +1559,18 @@ function renderStatus(s) {
 }
 
 let statusTimer;
+// How the status requests are going, for the System tab: the portal's view
+// of the link to the display.
+const portalLink = { requests: 0, failed: 0, slowestMs: 0, lastFailAt: 0, misses: 0 };
 async function pollStatus() {
   clearTimeout(statusTimer);
   if (document.hidden) { statusTimer = setTimeout(pollStatus, 2000); return; }
+  const t0 = performance.now();
+  portalLink.requests++;
   try {
     st = await api('/api/status', undefined, { timeout: 4000 });
+    portalLink.slowestMs = Math.max(portalLink.slowestMs, Math.round(performance.now() - t0));
+    portalLink.misses = 0;
     if (reloadForNewPortal(st.portalBuild)) return;
     if (!online) {
       online = true;
@@ -1559,8 +1579,13 @@ async function pollStatus() {
     }
     renderStatus(st);
   } catch (e) {
-    online = false;
-    $('#offline').hidden = false;
+    portalLink.failed++;
+    portalLink.lastFailAt = Date.now();
+    // One late reply isn't lost contact; two in a row is.
+    if (++portalLink.misses >= 2) {
+      online = false;
+      $('#offline').hidden = false;
+    }
   }
   statusTimer = setTimeout(pollStatus, 1000);
 }
