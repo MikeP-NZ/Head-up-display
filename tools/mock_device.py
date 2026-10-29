@@ -167,7 +167,7 @@ class Device:
         data_age = int((now - self.lines[-1][1]) * 1000) if self.lines and conn else -1
         proto = self.cfg["data"]["protocol"]
         return {
-            "fw": "1.1.0-mock", "board": self.board["name"], "deviceId": "1A2B", "uptime": int(now - self.boot), "heap": 182000, "minHeap": 150000,
+            "fw": "1.2.0-mock", "board": self.board["name"], "deviceId": "1A2B", "uptime": int(now - self.boot), "heap": 182000, "minHeap": 150000,
             "psram": 16 * 1048576, "rebootRequired": self.reboot_required, "resetReason": "power on", "loop": {"gapRecentMs": 4, "gapMaxMs": 37, "gapMaxAgo": 12},
             "wifi": {
                 "configured": bool(self.cfg["wifi"]["ssid"]), "ssid": self.cfg["wifi"]["ssid"],
