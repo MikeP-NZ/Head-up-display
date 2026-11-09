@@ -622,9 +622,10 @@ code { font-family: var(--mono); font-size: 12.5px; background: var(--panel-2); 
         <label class="field" data-hub75><span>Latch blanking</span><input type="number" id="panel-latchBlanking" min="1" max="4"></label>
         <div>
           <span class="field-label">Clock phase</span>
-          <label class="check"><input type="checkbox" id="panel-clkPhase"> Clock data on the rising edge</label>
+          <label class="check"><input type="checkbox" id="panel-clkPhase"> Invert the clock</label>
+          <div class="hint">Shifts the clock half a cycle against the other lines. Unticked, the control lines change as the clock falls, so the panel reads them on the rising edge. Garbled or ghosting picture? Try the other way.</div>
           <div class="hint" id="clk-hint"></div>
-          <div class="hint" data-spwm hidden>S-PWM panels need this unticked (on SM16380 panels, ticked gives vertical ghosting and white blocks of columns).</div>
+          <div class="hint" data-spwm hidden>S-PWM panels need this unticked (ticked scrambles the picture, or on SM16380 panels gives vertical ghosting and white blocks of columns).</div>
         </div>
       </div>
       <div id="port-block" hidden>
@@ -1282,7 +1283,7 @@ function syncDriverFields() {
   $('#spwm-profile-hint').textContent = profiles.hint;
 }
 $('#panel-driver').addEventListener('change', () => {
-  // S-PWM panels only work with data clocked on the falling edge.
+  // S-PWM panels only work with the clock not inverted.
   if (SPWM_PROFILES[$('#panel-driver').value]) $('#panel-clkPhase').checked = false;
   syncDriverFields();
 });

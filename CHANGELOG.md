@@ -22,6 +22,13 @@ built for another board. A board's first install still goes over USB, see
 - **Row driver** setting for S-PWM panels: an A-E address decoder, or a
   shift-register row driver such as ICND2018 or ICND1018.
 
+### Changed
+
+- The Hardware tab's clock phase checkbox is now called **Invert the clock**.
+  Its old label, *Clock data on the rising edge*, described the opposite of
+  what it does: unticked, the panel reads the control lines on the clock's
+  rising edge. The setting itself is unchanged.
+
 ### Fixed
 
 - A hidden **Unused chip outputs** list no longer blocks saving the Hardware

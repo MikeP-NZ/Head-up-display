@@ -87,7 +87,7 @@ struct Settings {
   bool chipPad = true;    // pad row blocks to whole 16-output driver chips (PanelMap.h)
   String chipSkip;        // unused outputs per row block, e.g. "15,31,47"; empty = at the end
   PanelDriver driver = board().defaultDriver;
-  bool clkPhase = board().defaultClkPhase;
+  bool clkPhase = board().defaultClkPhase;  // invert CLK ("Invert the clock"); unticked, panels read on its rising edge
   uint8_t i2sSpeedMHz = 8;
   uint8_t latchBlanking = 1;
   uint8_t spwmProfile = 0;  // S-PWM register set / variant, see Sm16380Wave.h
