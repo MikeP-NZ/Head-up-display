@@ -358,6 +358,7 @@ turned off.
 |---|---|
 | Panel dark or garbled | **Hardware** tab: driver *FM6126A*, then *Generic*; lower the clock speed; check the panel's 5 V supply |
 | Panel with SM16380 chips (often with a RUC7258D row driver) | **Hardware** → Driver chip → *SM16380*. Count the driver chips: 16 per colour on a 64×64 panel means 1/16 scan (Scan rate → *1/16 scan (4 rows per address)*); 8 per colour means 1/32 (*2 rows per address, standard*). Leave *Clock data on the rising edge* unticked (ticked gives vertical ghosting and white blocks of columns). Known good on a 64×64 P2.5 SM16380SF/RUC7258 panel: 1/16 scan, *Captured settings*, 16 bit, 20 MHz. If the picture is wrong, try the other block order, the other register set, slower clock speeds, then *14 bit* grey levels. SM16380SH chips use a different protocol and are not supported |
+| Panel with SM16169SH chips (e.g. P4 80×40 1/10 scan with ICND1018 row drivers) | **Hardware** → Driver chip → *SM16169SH*; Row driver → *Shift register* for ICND2018/ICND1018 rows, *Address decoder* for 74HC138-style rows. For 80×40 at 1/10, choose *1/10 scan (4 rows per address)*. Leave *Clock data on the rising edge* unticked (ticked scrambles the picture). Known good on a P4 80×40 SM16169SH/ICND1018 panel: register set *Huidu table, 256 clocks per row*, 16 bit, 8 MHz. Faint horizontal lines or odd colours? Try the other register sets |
 | Rows doubled, interleaved or in blocks | The panel lights more than two rows per address. Its scan rate is usually printed on the back, e.g. *P4-80x40-10S* = 1/10. Set the panel's width and height first, then **Hardware** → Scan rate → the matching 1/N. If the picture is still in the wrong rows, try *other block order*, then *Column blocks* 16 or 8. Columns shifted or missing on a panel whose width isn't a multiple of 16 (e.g. 104 px)? Some driver chip outputs have no LED: run the test pattern, read the column code (from 24 s) and enter the numbers that never appear under *Unused chip outputs*. The P3.076 104×52 1/13 scan panel (ICND2037 + ICN2012) needs `15,31,47,48,63,64,80,96` |
 | Colours wrong in the test pattern | **Hardware** → Colour order |
 | Upside down / sideways | **Layout** → Rotation |
@@ -457,7 +458,7 @@ Release with the changelog section as its notes and each board's
 
 ```
 lib/BoatData/     portable NMEA 0183 + YD RAW parsers, the boat model, the display items and the demo boat (unit-tested)
-lib/Sm16380/      clock-by-clock waveform for SM16380 S-PWM panels (unit-tested)
+lib/Sm16380/      clock-by-clock waveform for S-PWM panels: SM16380, SM16169SH (unit-tested)
 src/
   Board.*         per-board pins, defaults, button/LED, HD-WF4 output ports
   main.cpp        boot, render loop, night schedule, button
@@ -467,7 +468,7 @@ src/
   Settings.*      settings model, JSON validation, NVS storage
   Renderer.*      all panel screens (hardware-free; also builds on the host)
   Display.*       HUB75 driver glue
-  Sm16380Panel.*  SM16380 output: replays the waveform through the S3's LCD peripheral
+  Sm16380Panel.*  S-PWM output: replays the waveform through the S3's LCD peripheral
 web/              the portal (index.html) and its home-screen manifest and icons, embedded at build time
 tools/            simulator, mock device, preview renderer, decoder CLI, stream.py (nc for Windows), icon generator
 ```

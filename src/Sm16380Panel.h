@@ -7,7 +7,7 @@
 
 class Bus_Parallel16;
 
-// HUB75 panel with SM16380-family S-PWM drivers. The whole clock-by-clock
+// HUB75 panel with S-PWM drivers (SM16380, SM16169SH). The whole clock-by-clock
 // waveform (see Sm16380Wave.h) lives in RAM and the ESP32-S3's LCD
 // peripheral replays it in an endless DMA loop, so the drivers get the
 // continuous clock they need. Drawing edits the pixel data in place.
@@ -15,6 +15,8 @@ class Sm16380Panel {
  public:
   struct Config {
     PanelPins pins;  // colour order already applied
+    sm16380::Chip chip;
+    sm16380::RowDriver rows;
     uint16_t width;  // total, including chained panels
     uint16_t height;
     uint8_t profile;

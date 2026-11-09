@@ -3,8 +3,6 @@
 #include <Preferences.h>
 #include <esp_mac.h>
 
-#include "Sm16380Wave.h"
-
 namespace {
 
 constexpr const char* kNamespace = "headupcfg";
@@ -42,7 +40,9 @@ constexpr EnumName<NightMode> kNightModes[] = {
 constexpr EnumName<PanelDriver> kDrivers[] = {{PanelDriver::ShiftReg, "SHIFTREG"}, {PanelDriver::FM6124, "FM6124"},
                                               {PanelDriver::FM6126A, "FM6126A"},   {PanelDriver::ICN2038S, "ICN2038S"},
                                               {PanelDriver::MBI5124, "MBI5124"},   {PanelDriver::DP3246, "DP3246"},
-                                              {PanelDriver::SM16380, "SM16380"}};
+                                              {PanelDriver::SM16380, "SM16380"},   {PanelDriver::SM16169SH, "SM16169SH"}};
+constexpr EnumName<sm16380::RowDriver> kSpwmRows[] = {{sm16380::RowDriver::Decoder, "decoder"},
+                                                      {sm16380::RowDriver::Shift, "shift"}};
 
 constexpr EnumName<PanelScan> kScans[] = {
     {PanelScan::Standard, "standard"},   {PanelScan::FourScan, "four"},          {PanelScan::FourScanAlt, "four-alt"},
@@ -303,6 +303,7 @@ void settingsToJson(const Settings& s, JsonObject root, bool includeSecrets) {
   panel["latchBlanking"] = s.latchBlanking;
   panel["spwmProfile"] = s.spwmProfile;
   panel["spwmGrayBits"] = s.spwmGrayBits;
+  panel["spwmRows"] = nameOf(kSpwmRows, s.spwmRows);
   panel["colorOrder"] = s.colorOrder;
   if (board().portCount) panel["port"] = s.hubPort;
   JsonObject pins = panel["pins"].to<JsonObject>();
@@ -404,15 +405,16 @@ bool settingsMergeJson(Settings& s, JsonObjectConst root, SettingsChanges& chang
     m.boolean(o, "clkPhase", n.clkPhase);
     m.num(o, "i2sSpeed", n.i2sSpeedMHz, 2, 20);
     m.num(o, "latchBlanking", n.latchBlanking, 1, 4);
-    m.num(o, "spwmProfile", n.spwmProfile, 0, sm16380::kProfileCount - 1);
+    m.num(o, "spwmProfile", n.spwmProfile, 0, sm16380::kMaxProfiles - 1);
     m.num(o, "spwmGrayBits", n.spwmGrayBits, 14, 16);
+    m.choice(o, "spwmRows", kSpwmRows, n.spwmRows);
     m.str(o, "colorOrder", n.colorOrder, 3);
     n.colorOrder.toUpperCase();
     if (n.colorOrder.length() != 3 || n.colorOrder.indexOf('R') < 0 || n.colorOrder.indexOf('G') < 0 ||
         n.colorOrder.indexOf('B') < 0) {
       m.fail("colorOrder", "must be a permutation of RGB");
     }
-    const bool spwm = n.driver == PanelDriver::SM16380;
+    const bool spwm = isSpwm(n.driver);
     const panelmap::Layout layout = n.panelLayout();
     if (n.panelHeight % layout.rowsLit != 0) {
       m.fail("scan", (String("needs a panel height divisible by ") + layout.rowsLit).c_str());
@@ -427,12 +429,15 @@ bool settingsMergeJson(Settings& s, JsonObjectConst root, SettingsChanges& chang
     }
     const bool slowClock = spwm && (n.i2sSpeedMHz == 2 || n.i2sSpeedMHz == 5);
     if (n.i2sSpeedMHz != 8 && n.i2sSpeedMHz != 16 && n.i2sSpeedMHz != 20 && !slowClock) {
-      m.fail("i2sSpeed", "must be 8, 16 or 20 (or 2 or 5 for SM16380)");
+      m.fail("i2sSpeed", "must be 8, 16 or 20 (or 2 or 5 for S-PWM drivers)");
     }
     if (n.spwmGrayBits != 14 && n.spwmGrayBits != 16) m.fail("spwmGrayBits", "must be 14 or 16");
     if (spwm) {
-      if (n.panelWidth % 16 != 0) m.fail("width", "must be a multiple of 16 for SM16380 panels");
-      if (n.panelHeight % 2 != 0 || n.panelHeight > 64) m.fail("height", "must be even and at most 64 for SM16380 panels");
+      if (n.panelWidth % 16 != 0) m.fail("width", "must be a multiple of 16 for S-PWM panels");
+      if (n.panelHeight % 2 != 0 || n.panelHeight > 64) m.fail("height", "must be even and at most 64 for S-PWM panels");
+      const sm16380::Chip chip = n.driver == PanelDriver::SM16169SH ? sm16380::Chip::SM16169SH : sm16380::Chip::SM16380;
+      // A profile number left from the other chip falls back to the first.
+      if (n.spwmProfile >= sm16380::profileCount(chip)) n.spwmProfile = 0;
     }
     if (JsonObjectConst pins = o["pins"]) {
       for (const auto& f : kPinFields) {

@@ -8,6 +8,7 @@
 #include "Items.h"
 #include "LineDecoder.h"
 #include "PanelMap.h"
+#include "Sm16380Wave.h"
 
 enum class Transport : uint8_t { Tcp = 0, Udp = 1 };
 enum class NightMode : uint8_t { Off = 0, On = 1, Schedule = 2 };
@@ -89,8 +90,9 @@ struct Settings {
   bool clkPhase = board().defaultClkPhase;
   uint8_t i2sSpeedMHz = 8;
   uint8_t latchBlanking = 1;
-  uint8_t spwmProfile = 0;  // SM16380 config register set, see Sm16380Wave.h
+  uint8_t spwmProfile = 0;  // S-PWM register set / variant, see Sm16380Wave.h
   uint8_t spwmGrayBits = 16;
+  sm16380::RowDriver spwmRows = sm16380::RowDriver::Decoder;  // S-PWM panels' row driver
   String colorOrder = "RGB";
   PanelPins pins = board().defaultPins;  // boards without port selection
   String hubPort = board().defaultPort ? board().defaultPort : "";  // boards with several HUB75 outputs

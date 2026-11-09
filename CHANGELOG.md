@@ -11,6 +11,22 @@ for your board from the portal's **System** tab; the display refuses images
 built for another board. A board's first install still goes over USB, see
 [Flashing](README.md#flashing).
 
+## [Unreleased]
+
+### Added
+
+- Driver for panels with SM16169SH S-PWM chips, such as the P4 80×40
+  1/10-scan panel with ICND1018 row drivers. It uses the SM16380SH-family
+  protocol, with OE as the chips' row clock and the register table from
+  Huidu's HDSet presets. Tested on that P4 panel.
+- **Row driver** setting for S-PWM panels: an A-E address decoder, or a
+  shift-register row driver such as ICND2018 or ICND1018.
+
+### Fixed
+
+- A hidden **Unused chip outputs** list no longer blocks saving the Hardware
+  tab.
+
 ## [1.2.0] - 2026-10-29
 
 ### Added

@@ -45,7 +45,7 @@ bool Display::begin(const Settings& s) {
 
   // The panel's DMA buffers are allocated before the canvas, while internal
   // RAM is least fragmented.
-  if (s.driver == PanelDriver::SM16380) {
+  if (isSpwm(s.driver)) {
     beginSm16380(s, q);
     renderer_ = new Renderer(width, height);
     shadow_ = static_cast<uint16_t*>(calloc(static_cast<size_t>(width) * height, sizeof(uint16_t)));
@@ -89,19 +89,22 @@ bool Display::begin(const Settings& s) {
 
 bool Display::beginSm16380(const Settings& s, const PanelPins& pins) {
   // Same folding as a HUB75 panel: e.g. 64x64 at 1/16 scan has two 64-pixel
-  // row blocks on each data line's 8-chip chain.
+  // row blocks on each data line's 8-chip chain, and 80x40 at 1/10 two
+  // 80-pixel blocks on a 10-chip chain.
   layout_ = s.panelLayout();
   Sm16380Panel::Config cfg;
   cfg.pins = pins;
+  cfg.chip = s.driver == PanelDriver::SM16169SH ? sm16380::Chip::SM16169SH : sm16380::Chip::SM16380;
+  cfg.rows = s.spwmRows;
   cfg.width = layout_.driverWidth() * s.chain;
   cfg.height = layout_.driverHeight();
-  cfg.profile = s.spwmProfile < sm16380::kProfileCount ? s.spwmProfile : 0;
+  cfg.profile = s.spwmProfile < sm16380::profileCount(cfg.chip) ? s.spwmProfile : 0;
   cfg.grayBits = s.spwmGrayBits;
   cfg.clkPhase = s.clkPhase;
   cfg.speedMHz = s.i2sSpeedMHz;
   spwm_ = new Sm16380Panel();
   if (!spwm_->begin(cfg)) {
-    log_e("SM16380 init failed - check the portal's Hardware settings");
+    log_e("S-PWM panel init failed - check the portal's Hardware settings");
     delete spwm_;
     spwm_ = nullptr;
   }
