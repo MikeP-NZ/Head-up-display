@@ -21,6 +21,11 @@ built for another board. A board's first install still goes over USB, see
   Huidu's HDSet presets. Tested on that P4 panel.
 - **Row driver** setting for S-PWM panels: an A-E address decoder, or a
   shift-register row driver such as ICND2018 or ICND1018.
+- Each release has a `headup-<board>-<version>-combined.bin` for every board:
+  the whole first install in one image, written at offset 0.
+- Flash a board from the browser with ESP Launchpad: the
+  [README](README.md#from-the-browser) has the link, and you pick your board
+  there.
 
 ### Changed
 

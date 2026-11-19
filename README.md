@@ -103,6 +103,35 @@ boat network's traffic. It comes back if the boat network can't be joined for
 
 ## Flashing
 
+### From the browser
+
+The quickest first install needs no tools. In Chrome or Edge, open
+
+<a href="https://espressif.github.io/esp-launchpad/?flashConfigURL=https%3A%2F%2Fmikep-nz.github.io%2FHead-up-display%2Fconfig.toml">
+  <img alt="Try it with ESP Launchpad" src="https://espressif.github.io/esp-launchpad/assets/try_with_launchpad.png" width="250" height="70">
+</a>
+
+connect the board over USB and press **Connect**. Under **ESP Develop Kits**,
+pick your board, then press **Flash**. Check the board choice: the first one
+is picked by default, and each board needs its own image.
+[ESP Launchpad](https://github.com/espressif/esp-launchpad) writes the latest
+release's combined image for that board. The images are also on the
+[firmware page](https://mikep-nz.github.io/Head-up-display/).
+On the HD-WF4, back up Huidu's firmware first and connect as the
+[HD-WF4 flashing guide](docs/flashing-hd-wf4.md) describes. If the board
+isn't found, put it in download mode (see below) and try again.
+
+Each release also has a `headup-<environment>-<version>-combined.bin` that
+other tools can write at offset 0, for example:
+
+```bash
+python -m esptool --chip esp32s3 write-flash 0 headup-huidu_hd_wf4-1.2.0-combined.bin
+```
+
+A local build makes the same image as `.pio/build/<environment>/firmware_combined.bin`.
+
+### With PlatformIO
+
 **Huidu HD-WF4:** follow [docs/flashing-hd-wf4.md](docs/flashing-hd-wf4.md). This board
 flashes firmware through its USB-A socket, and the guide covers backing up Huidu's
 firmware first.
@@ -451,8 +480,14 @@ publish a release:
    ```
 
 The workflow checks the tag matches `FW_VERSION`, then creates the GitHub
-Release with the changelog section as its notes and each board's
-`firmware.bin` attached.
+Release with the changelog section as its notes and two images for each
+board: `headup-<environment>-<version>.bin` for updates from the portal, and
+`headup-<environment>-<version>-combined.bin` for a first install
+(`scripts/merge_bin.py` builds it). It then publishes the combined images to
+the GitHub Pages site, along with the ESP Launchpad config that lists them
+(`config.toml`, written by `scripts/make_launchpad.py`), so the browser
+flashing link always uses the latest release. Pages needs turning on
+once: **Settings → Pages → Source: GitHub Actions**.
 
 ### Layout
 

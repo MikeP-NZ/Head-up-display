@@ -1,7 +1,11 @@
 # Builds every board and runs the unit tests on each push and pull request.
-# Pushing a tag like v1.2.0 also publishes a GitHub Release with each board's
-# firmware.bin attached, ready to upload from the portal's System tab. The tag
-# must match FW_VERSION in platformio.ini.
+# Pushing a tag like v1.2.0 also publishes a GitHub Release with two images per
+# board, and the tag must match FW_VERSION in platformio.ini:
+#   headup-<board>-<version>.bin           update, from the portal's System tab
+#   headup-<board>-<version>-combined.bin  first install over USB, at offset 0
+# It then puts the combined images and their ESP Launchpad config on the
+# GitHub Pages site (Settings -> Pages -> Source: GitHub Actions), so that
+# a board can be flashed from the browser.
 name: Build
 
 on:
@@ -44,6 +48,7 @@ jobs:
           version=$(sed -n 's/.*FW_VERSION=\\"\([^\\]*\)\\".*/\1/p' platformio.ini)
           mkdir dist
           cp .pio/build/${{ matrix.env }}/firmware.bin dist/headup-${{ matrix.env }}-$version.bin
+          cp .pio/build/${{ matrix.env }}/firmware_combined.bin dist/headup-${{ matrix.env }}-$version-combined.bin
       - uses: actions/upload-artifact@v7
         with:
           name: firmware-${{ matrix.env }}
@@ -78,3 +83,39 @@ jobs:
           files: |
             dist/*.bin
             THIRD_PARTY_NOTICES.md
+
+  # The browser flasher: ESP Launchpad reads config.toml from the Pages site
+  # and writes the chosen board's combined image. Pages serves both with the CORS
+  # headers Launchpad needs (release downloads don't have them).
+  pages:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: release
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - uses: actions/download-artifact@v8
+        with:
+          path: dist
+          merge-multiple: true
+      - id: pages
+        uses: actions/configure-pages@v6
+      - name: Build the site
+        run: |
+          version=$(sed -n 's/.*FW_VERSION=\\"\([^\\]*\)\\".*/\1/p' platformio.ini)
+          mkdir site
+          cp dist/*-combined.bin site/
+          python scripts/make_launchpad.py "$version" "${{ steps.pages.outputs.base_url }}" site
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: site
+      - id: deploy
+        uses: actions/deploy-pages@v5
