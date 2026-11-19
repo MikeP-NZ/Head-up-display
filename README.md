@@ -108,7 +108,7 @@ boat network's traffic. It comes back if the boat network can't be joined for
 The quickest first install needs no tools. In Chrome or Edge, open
 
 <a href="https://espressif.github.io/esp-launchpad/?flashConfigURL=https%3A%2F%2Fmikep-nz.github.io%2FHead-up-display%2Fconfig.toml">
-  <img alt="Try it with ESP Launchpad" src="https://espressif.github.io/esp-launchpad/assets/try_with_launchpad.png" width="250" height="70">
+  <img alt="Try it with ESP Launchpad" src="https://raw.githubusercontent.com/espressif/esp-launchpad/main/assets/try_with_launchpad.png" width="250" height="70">
 </a>
 
 connect the board over USB and press **Connect**. Under **ESP Develop Kits**,
