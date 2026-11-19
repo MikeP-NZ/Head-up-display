@@ -8,3 +8,5 @@ __pycache__/
 *.bak
 .venv/
 .claude/
+# Written by PlatformIO on every IDE refresh; not used.
+.gitignore.optional
