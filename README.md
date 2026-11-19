@@ -125,7 +125,7 @@ Each release also has a `headup-<environment>-<version>-combined.bin` that
 other tools can write at offset 0, for example:
 
 ```bash
-python -m esptool --chip esp32s3 write-flash 0 headup-huidu_hd_wf4-1.2.0-combined.bin
+python -m esptool --chip esp32s3 write-flash 0 headup-huidu_hd_wf4-1.3.0-combined.bin
 ```
 
 A local build makes the same image as `.pio/build/<environment>/firmware_combined.bin`.

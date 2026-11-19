@@ -8,10 +8,13 @@ display shows it on its splash screen and in the portal.
 
 Each release on GitHub has a `firmware.bin` for every board. Upload the one
 for your board from the portal's **System** tab; the display refuses images
-built for another board. A board's first install still goes over USB, see
+built for another board. A board's first install still goes over USB: from
+1.3.0, flash it from the browser or with the release's `-combined.bin`, see
 [Flashing](README.md#flashing).
 
 ## [Unreleased]
+
+## [1.3.0] - 2026-11-19
 
 ### Added
 
@@ -92,5 +95,6 @@ First public release.
 - Firmware updates over Wi-Fi from the portal or from PlatformIO.
 - Demo mode with a simulated sailing boat.
 
+[1.3.0]: https://github.com/MikeP-NZ/Head-up-display/releases/tag/v1.3.0
 [1.2.0]: https://github.com/MikeP-NZ/Head-up-display/releases/tag/v1.2.0
 [1.1.0]: https://github.com/MikeP-NZ/Head-up-display/releases/tag/v1.1.0
